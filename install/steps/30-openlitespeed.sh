@@ -69,6 +69,16 @@ if [[ -x "$default_php" ]]; then
   ln -sf "$default_php" "$OLS_ROOT/fcgi-bin/lsphp"
 fi
 
+# An earlier Tela installer replaced the lsws.service alias with a copy of
+# lshttpd.service. Put the alias back so there is only one web server unit.
+units=/etc/systemd/system
+if [[ -f "$units/lshttpd.service" && -f "$units/lsws.service" && ! -L "$units/lsws.service" ]] \
+  && cmp -s "$units/lshttpd.service" "$units/lsws.service"; then
+  ln -sf "$units/lshttpd.service" "$units/lsws.service"
+  run systemctl daemon-reload
+  echo "restored lsws.service as an alias of lshttpd.service" >>"$LOG_FILE"
+fi
+
 enable_service lsws
 run systemctl restart lsws
 ok "Web server running"

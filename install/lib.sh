@@ -73,51 +73,51 @@ save_credential() {
   printf '%-28s %s\n' "$label" "$value" >>"$TELA_CREDENTIALS"
 }
 
-# Enable a systemd unit at boot. Newer systemd (Ubuntu 26.04) refuses to enable a
-# unit whose file is a symlink pointing outside the unit directories, which is how
-# the OpenLiteSpeed package installs lsws.service. In that case the symlink is
-# replaced with a copy of the file it points to, and enabling is tried again.
-enable_service() {
-  local unit="$1" name dir link target fixed=0
-  if [[ "$(systemctl is-enabled "$unit" 2>/dev/null || true)" == "enabled" ]]; then
-    return 0
-  fi
-  echo "+ systemctl enable $unit" >>"$LOG_FILE"
-  if systemctl enable "$unit" >>"$LOG_FILE" 2>&1; then
-    return 0
-  fi
+SYSTEMD_UNIT_DIRS=(/etc/systemd/system /run/systemd/system /usr/local/lib/systemd/system
+  /usr/lib/systemd/system /lib/systemd/system)
 
-  # Look for the symlinked unit file in every unit directory ourselves: depending
-  # on the systemd version, FragmentPath reports the link or its target.
+_in_unit_dir() {
+  local dir
+  for dir in "${SYSTEMD_UNIT_DIRS[@]}"; do
+    [[ "$(dirname "$1")" == "$(readlink -f "$dir" 2>/dev/null || echo "$dir")" ]] && return 0
+  done
+  return 1
+}
+
+# Enable a systemd unit at boot.
+#
+# Newer systemd (Ubuntu 26.04) refuses `systemctl enable` on a name that is a
+# symlink. The OpenLiteSpeed package installs lshttpd.service and adds
+# lsws.service and openlitespeed.service as symlinks (aliases) to it, so:
+#   - an alias of another unit file is resolved and the real unit is enabled;
+#   - a symlink to a file outside the unit directories is replaced by a copy.
+enable_service() {
+  local unit="$1" name dir link target real
   name="$unit"
   [[ "$name" == *.* ]] || name="$name.service"
-  for dir in /etc/systemd/system /run/systemd/system /usr/local/lib/systemd/system \
-    /usr/lib/systemd/system /lib/systemd/system; do
+  real="$name"
+
+  for dir in "${SYSTEMD_UNIT_DIRS[@]}"; do
     link="$dir/$name"
-    if [[ -L "$link" ]]; then
-      target="$(readlink -f "$link" || true)"
-      echo "linked unit file: $link -> ${target:-?}" >>"$LOG_FILE"
-      if [[ -n "$target" && -f "$target" ]]; then
-        cp --remove-destination "$target" "$link"
-        chmod 0644 "$link"
-        echo "replaced $link with a copy of $target" >>"$LOG_FILE"
-        fixed=1
-      fi
+    [[ -L "$link" ]] || continue
+    target="$(readlink -f "$link" || true)"
+    echo "unit file $link is a symlink to ${target:-?}" >>"$LOG_FILE"
+    [[ -n "$target" && -f "$target" ]] || continue
+    if _in_unit_dir "$target"; then
+      real="$(basename "$target")"
+    else
+      cp --remove-destination "$target" "$link"
+      chmod 0644 "$link"
+      echo "replaced $link with a copy of $target" >>"$LOG_FILE"
+      run systemctl daemon-reload
     fi
+    break
   done
 
-  if ((fixed)); then
-    run systemctl daemon-reload
-    run systemctl enable "$unit"
+  if [[ "$(systemctl is-enabled "$real" 2>/dev/null || true)" == "enabled" ]]; then
     return 0
   fi
-  {
-    echo "could not find a symlinked unit file for $name"
-    systemctl show -P FragmentPath "$unit" 2>&1 || true
-    ls -l /etc/systemd/system/"$name" /usr/lib/systemd/system/"$name" 2>&1 || true
-  } >>"$LOG_FILE"
-  tail -n 8 "$LOG_FILE" | sed 's/^/    | /' >&2
-  die "could not enable $unit"
+  run systemctl enable "$real"
 }
 
 public_ip() {
