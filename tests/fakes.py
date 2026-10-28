@@ -116,3 +116,73 @@ class FakeMariaDB:
 
     def drop_user(self, user: str) -> None:
         self.users.pop(user, None)
+
+
+class FakeCloudflare:
+    """In-memory Cloudflare account. Records are stored in Tela's own format."""
+
+    def __init__(self) -> None:
+        self.tokens = {"good-token": "active"}
+        self.zone_list = [
+            {"id": "a" * 32, "name": "example.com", "status": "active"},
+            {"id": "b" * 32, "name": "cvgalerij.nl", "status": "active"},
+        ]
+        self.data: dict[str, list[dict]] = {z["id"]: [] for z in self.zone_list}
+        self.token = ""
+
+    def __call__(self, token: str):
+        self.token = token
+        return self
+
+    def verify(self) -> str:
+        from tela_agent.registry import ActionError
+
+        if self.token not in self.tokens:
+            raise ActionError("Cloudflare: Invalid API Token")
+        return self.tokens[self.token]
+
+    def zones(self):
+        self.verify()
+        return [dict(z) for z in self.zone_list]
+
+    def records(self, zone_id, zone):
+        return [dict(r) for r in self.data[zone_id]]
+
+    def create(self, zone_id, zone, record):
+        import secrets
+
+        stored = {**record, "id": secrets.token_hex(16)}
+        self.data[zone_id].append(stored)
+        return dict(stored)
+
+    def update(self, zone_id, zone, record):
+        rows = self.data[zone_id]
+        for i, r in enumerate(rows):
+            if r["id"] == record["id"]:
+                rows[i] = dict(record)
+                return dict(record)
+        from tela_agent.registry import ActionError
+
+        raise ActionError("Cloudflare: Record does not exist.")
+
+    def delete(self, zone_id, record_id):
+        self.data[zone_id] = [r for r in self.data[zone_id] if r["id"] != record_id]
+
+
+class FakePowerDNS:
+    def __init__(self, base) -> None:
+        self.base = base
+        self.available = True
+        self.fail_reload = False
+        self.files: dict[str, str] = {}
+        self.reloads: list[str | None] = []
+
+    def write(self, zones: dict[str, str]) -> None:
+        self.files = dict(zones)
+
+    def reload(self, zone=None) -> None:
+        from tela_agent.registry import ActionError
+
+        if self.fail_reload:
+            raise ActionError("PowerDNS: Failed to parse zone file")
+        self.reloads.append(zone)

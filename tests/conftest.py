@@ -19,7 +19,7 @@ from tela.db import connect, migrate
 from tela_agent import settings, sysops
 from tela_agent.server import AgentServer
 
-from .fakes import FakeMariaDB, FakeSystem
+from .fakes import FakeCloudflare, FakeMariaDB, FakePowerDNS, FakeSystem
 
 ADMIN_PASSWORD = "correct-horse-battery"
 
@@ -126,6 +126,7 @@ def host(tmp_path, monkeypatch):
         "TELA_CONFIG": tmp_path / "no-tela.conf",
         "TELA_PMA_ROOT": tmp_path / "phpmyadmin",
         "TELA_PMA_TOKENS": tmp_path / "pma-tokens",
+        "TELA_PDNS_DIR": tmp_path / "powerdns",
     }
     for key, value in env.items():
         monkeypatch.setenv(key, str(value))
@@ -138,4 +139,11 @@ def host(tmp_path, monkeypatch):
     from tela_agent.actions import databases
 
     monkeypatch.setattr(databases, "server", lambda paths: db)
+
+    from tela_agent.actions import dns
+
+    fake.cloudflare = FakeCloudflare()
+    fake.powerdns = FakePowerDNS(tmp_path / "powerdns")
+    monkeypatch.setattr(dns, "cloudflare_client", fake.cloudflare)
+    monkeypatch.setattr(dns, "powerdns", lambda paths: fake.powerdns)
     return fake, settings.load()

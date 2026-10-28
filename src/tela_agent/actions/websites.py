@@ -288,7 +288,11 @@ def create_site(params: dict[str, Any]) -> dict[str, Any]:
             sysops.system.remove_tree(site.home)
             sysops.system.delete_site_user(user)
             raise
-    return site.to_dict()
+    from .dns import ensure_site_records
+
+    result = site.to_dict()
+    result["dns"] = ensure_site_records(paths, site.domain, site.aliases)
+    return result
 
 
 @action("website.update")

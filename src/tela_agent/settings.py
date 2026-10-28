@@ -24,6 +24,7 @@ class Paths:
     panel_cert: Path = Path("/etc/tela/ssl/panel.crt")
     panel_key: Path = Path("/etc/tela/ssl/panel.key")
     default_php: str = "8.3"
+    pdns_dir: Path = Path("/etc/powerdns/tela")
 
     @property
     def httpd_config(self) -> Path:
@@ -49,6 +50,10 @@ class Paths:
     @property
     def pma_installed(self) -> bool:
         return (self.pma_root / "index.php").exists()
+
+    @property
+    def dns_dir(self) -> Path:
+        return self.state_dir.parent / "dns"
 
     @property
     def sso_users_file(self) -> Path:
@@ -89,4 +94,5 @@ def load() -> Paths:
         panel_cert=Path(panel.get("tls_cert", str(base.panel_cert))),
         panel_key=Path(panel.get("tls_key", str(base.panel_key))),
         default_php=str(defaults.get("php_version", base.default_php)),
+        pdns_dir=Path(env("TELA_PDNS_DIR", str(base.pdns_dir))),
     )

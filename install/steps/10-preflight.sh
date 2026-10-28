@@ -54,6 +54,15 @@ for port in 80 443 "$TELA_PORT" "$TELA_PMA_PORT"; do
 done
 ok "Ports 80, 443, $TELA_PORT and $TELA_PMA_PORT are available"
 
+if [[ "${TELA_DNS_SERVER:-0}" == "1" ]]; then
+  owner=$(ss -Hlunp "sport = :53" 2>/dev/null | grep -v "127.0.0.5[34]" \
+    | grep -o 'users:(("[^"]*"' | head -1 | cut -d'"' -f2 || true)
+  case "$owner" in
+    "" | pdns_server | systemd-resolve) ok "Port 53 is available for the DNS server" ;;
+    *) die "Port 53 is already used by '$owner'. Stop it first, or install without --with-dns-server." ;;
+  esac
+fi
+
 if [[ -n "$TELA_HOSTNAME" ]]; then
   [[ "$TELA_HOSTNAME" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]] \
     || die "Invalid hostname: $TELA_HOSTNAME"

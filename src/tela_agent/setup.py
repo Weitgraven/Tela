@@ -9,6 +9,7 @@ from __future__ import annotations
 import sys
 
 from . import ols, settings
+from .actions import dns
 from .actions.websites import load_sites
 
 
@@ -26,6 +27,13 @@ def main() -> int:
     sites = load_sites(paths)
     written = ols.write(sites, paths)
     print(f"web server config updated for {len(sites)} site(s), {len(written)} file(s) written")
+
+    pdns = dns.powerdns(paths)
+    if pdns.available:
+        zones = dns._render_local(paths, dns.load_settings(paths))
+        pdns.write(zones)
+        pdns.reload()
+        print(f"DNS server config updated for {len(zones)} zone(s)")
     return 0
 
 

@@ -4,8 +4,8 @@ Tela is a free, open-source web hosting control panel: websites, email, DNS,
 databases and backups on your own server, managed from one panel. Every
 feature is free. There are no paid add-ons and no premium tier.
 
-> **Status: early development.** Milestones 1–3 (installer, login,
-> dashboard, websites with SSL, databases with phpMyAdmin) are done. Hosting features are being added
+> **Status: early development.** Milestones 1–4 (installer, login,
+> dashboard, websites with SSL, databases with phpMyAdmin, DNS) are done. Hosting features are being added
 > milestone by milestone, see the [roadmap](#roadmap). Don't run it on a
 > production server yet.
 
@@ -46,6 +46,7 @@ curl -sSL https://raw.githubusercontent.com/Weitgraven/Tela/main/install.sh \
 PHP 8.1, 8.2, 8.3 and 8.4 are installed so each website can choose its own.
 Set `TELA_PHP_VERSIONS` to install a different set.
 | `--branch NAME` | `main` | Git branch to install |
+| `--with-dns-server` | off | Also run Tela's own DNS server (PowerDNS, port 53) |
 
 ### What gets installed
 
@@ -58,8 +59,10 @@ Set `TELA_PHP_VERSIONS` to install a different set.
 | Tela panel | Web interface, `tela-panel` service, port 8090 |
 | Tela agent | Privileged helper, `tela-agent` service, Unix socket only |
 
-Coming in later milestones: PowerDNS, Postfix, Dovecot, Rspamd, SnappyMail,
-Pure-FTPd, restic, nftables and Fail2ban.
+With `--with-dns-server`: PowerDNS as an authoritative DNS server.
+
+Coming in later milestones: Postfix, Dovecot, Rspamd, SnappyMail, Pure-FTPd,
+restic, nftables and Fail2ban.
 
 ## Websites
 
@@ -100,6 +103,26 @@ that works once, within a minute. Temporary users are removed after 12 hours.
 phpMyAdmin can't be signed into any other way. It runs on port 8091 (set
 `TELA_PMA_PORT` when installing to change it), uses the panel's certificate and
 runs PHP as its own `tela-pma` user.
+
+## DNS
+
+Tela manages DNS records in one of two places, chosen per domain:
+
+- **Cloudflare**: for domains that use Cloudflare's nameservers. Add an API
+  token with "Zone: Read" and "DNS: Edit" permissions under **DNS → Settings**,
+  then add a zone by picking it from your Cloudflare account. Records stay in
+  Cloudflare; Tela edits them through the API, including the proxy (orange
+  cloud) setting. Removing the zone from Tela leaves it untouched in Cloudflare.
+- **Tela DNS**: Tela's own authoritative DNS server (PowerDNS), installed with
+  `--with-dns-server`. Set your nameserver names (e.g. `ns1.example.com` and
+  `ns2.example.com`) under **DNS → Settings**, register them with their IP at
+  your registrar, and point your domains at them. Port 53 (TCP and UDP) must be
+  reachable. To free port 53 the installer turns off systemd-resolved's local
+  stub listener; the server itself keeps resolving names normally.
+
+Set the server's public IP under **DNS → Settings**. New zones and new websites
+then get `@` and `www` A (and AAAA) records pointing at it, unless the names
+already have records. Behind a router, use the router's public IP.
 
 ## The `tela` command
 
@@ -189,7 +212,7 @@ reload.
 1. ~~Installer, login, server dashboard~~
 2. ~~Websites: virtual hosts, PHP versions, Let's Encrypt SSL~~
 3. ~~Databases: MariaDB databases and users, phpMyAdmin with single sign-on~~
-4. DNS: PowerDNS, automatic zones
+4. ~~DNS: Cloudflare and PowerDNS, automatic records for websites~~
 5. Email: Postfix, Dovecot, Rspamd, DKIM/SPF/DMARC, webmail
 6. Backups: restic to S3, Backblaze B2 or SFTP, scheduled, with restore
 7. WordPress: install, staging, cloning, updates

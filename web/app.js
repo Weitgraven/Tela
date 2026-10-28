@@ -2,6 +2,7 @@ import { createApp, ref, computed, onMounted, onUnmounted } from "./vendor/vue.e
 import { api, session, route, navigate, formatBytes, formatUptime } from "./js/core.js";
 import { WebsitesView, WebsiteDetailView } from "./js/websites.js";
 import { DatabasesView } from "./js/databases.js";
+import { DnsView, DnsZoneView } from "./js/dns.js";
 
 // ---------------------------------------------------------------------------
 // Navigation
@@ -11,12 +12,7 @@ const SECTIONS = [
   { path: "/", label: "Dashboard" },
   { path: "/websites", label: "Websites" },
   { path: "/databases", label: "Databases" },
-  {
-    path: "/dns",
-    label: "DNS",
-    soon: true,
-    plan: ["Zones created automatically for new sites", "Edit A, CNAME, MX, TXT and other records"],
-  },
+  { path: "/dns", label: "DNS" },
   {
     path: "/email",
     label: "Email",
@@ -207,7 +203,9 @@ const PlannedView = {
 };
 
 const ShellView = {
-  components: { DashboardView, PlannedView, WebsitesView, WebsiteDetailView, DatabasesView },
+  components: {
+    DashboardView, PlannedView, WebsitesView, WebsiteDetailView, DatabasesView, DnsView, DnsZoneView,
+  },
   setup() {
     const current = computed(
       () =>
@@ -216,6 +214,10 @@ const ShellView = {
     );
     const detail = computed(() => {
       const match = route.value.match(/^\/websites\/([^/]+)$/);
+      return match ? decodeURIComponent(match[1]) : null;
+    });
+    const dnsZone = computed(() => {
+      const match = route.value.match(/^\/dns\/([^/]+)$/);
       return match ? decodeURIComponent(match[1]) : null;
     });
     const busy = ref(false);
@@ -233,7 +235,7 @@ const ShellView = {
     }
 
     const roleNames = { admin: "Administrator", reseller: "Reseller", user: "Client" };
-    return { sections: SECTIONS, current, detail, route, session, navigate, signOut, busy, roleNames };
+    return { sections: SECTIONS, current, detail, dnsZone, route, session, navigate, signOut, busy, roleNames };
   },
   template: `
     <div class="shell">
@@ -261,6 +263,8 @@ const ShellView = {
         <WebsiteDetailView v-else-if="detail" :key="detail" :domain="detail" />
         <WebsitesView v-else-if="current.path === '/websites'" />
         <DatabasesView v-else-if="current.path === '/databases'" />
+        <DnsZoneView v-else-if="dnsZone" :key="dnsZone" :zone="dnsZone" />
+        <DnsView v-else-if="current.path === '/dns'" />
         <PlannedView v-else :section="current" />
       </main>
     </div>

@@ -24,6 +24,7 @@ Options:
   --port PORT         Panel port (default 8090)
   --php VERSION       Default PHP version (default 8.3)
   --branch NAME       Git branch to install from (default main)
+  --with-dns-server   Also run an authoritative DNS server (PowerDNS, port 53)
   -h, --help          Show this help
 
 Environment:
@@ -35,6 +36,7 @@ EOF
 }
 
 TELA_HOSTNAME=""
+TELA_DNS_SERVER="${TELA_DNS_SERVER:-0}"
 TELA_PORT="8090"
 TELA_PHP="8.3"
 ARGS=("$@")
@@ -44,12 +46,13 @@ while [[ $# -gt 0 ]]; do
     --port) TELA_PORT="${2:?--port needs a value}"; shift 2 ;;
     --php) TELA_PHP="${2:?--php needs a value}"; shift 2 ;;
     --branch) TELA_BRANCH="${2:?--branch needs a value}"; shift 2 ;;
+    --with-dns-server) TELA_DNS_SERVER=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
   esac
 done
 export TELA_REPO TELA_BRANCH TELA_DIR TELA_HOSTNAME TELA_PORT TELA_PHP TELA_PHP_VERSIONS
-export TELA_PMA_PORT
+export TELA_PMA_PORT TELA_DNS_SERVER
 
 if [[ $EUID -ne 0 ]]; then
   echo "Run the installer as root (for example with sudo)." >&2

@@ -58,6 +58,15 @@ MIGRATIONS: list[str] = [
     );
     CREATE INDEX websites_owner ON websites(owner_id);
     """,
+    # 3: DNS zones (records live with the agent / Cloudflare; the panel tracks ownership)
+    """
+    CREATE TABLE dns_zones (
+        id         INTEGER PRIMARY KEY,
+        zone       TEXT NOT NULL UNIQUE,
+        owner_id   INTEGER REFERENCES users(id) ON DELETE RESTRICT,
+        created_at INTEGER NOT NULL
+    );
+    """,
 ]
 
 
