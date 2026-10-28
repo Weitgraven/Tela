@@ -1,72 +1,6 @@
-import { createApp, reactive, ref, computed, onMounted, onUnmounted } from "./vendor/vue.esm-browser.prod.js";
-
-// ---------------------------------------------------------------------------
-// API
-// ---------------------------------------------------------------------------
-
-const session = reactive({ user: null, csrf: "", checked: false });
-
-class ApiError extends Error {
-  constructor(status, message) {
-    super(message);
-    this.status = status;
-  }
-}
-
-async function api(path, { method = "GET", body } = {}) {
-  const headers = { Accept: "application/json" };
-  if (body !== undefined) headers["Content-Type"] = "application/json";
-  if (method !== "GET" && session.csrf) headers["X-CSRF-Token"] = session.csrf;
-
-  let response;
-  try {
-    response = await fetch(path, {
-      method,
-      headers,
-      credentials: "same-origin",
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-  } catch {
-    throw new ApiError(0, "Can't reach the panel. Check that the server is online.");
-  }
-
-  const data = await response.json().catch(() => ({}));
-  if (response.status === 401 && path !== "/api/auth/login") {
-    session.user = null;
-    session.csrf = "";
-  }
-  if (!response.ok) {
-    const detail = typeof data.detail === "string" ? data.detail : "Something went wrong.";
-    throw new ApiError(response.status, detail.charAt(0).toUpperCase() + detail.slice(1) + ".");
-  }
-  return data;
-}
-
-// ---------------------------------------------------------------------------
-// Formatting
-// ---------------------------------------------------------------------------
-
-function formatBytes(bytes) {
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let value = bytes;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
-}
-
-function formatUptime(seconds) {
-  const days = Math.floor(seconds / 86400);
-  const hours = Math.floor((seconds % 86400) / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const parts = [];
-  if (days) parts.push(`${days} ${days === 1 ? "day" : "days"}`);
-  if (hours) parts.push(`${hours} ${hours === 1 ? "hour" : "hours"}`);
-  if (!days && minutes) parts.push(`${minutes} min`);
-  return parts.join(", ") || "Just started";
-}
+import { createApp, ref, computed, onMounted, onUnmounted } from "./vendor/vue.esm-browser.prod.js";
+import { api, session, route, navigate, formatBytes, formatUptime } from "./js/core.js";
+import { WebsitesView, WebsiteDetailView } from "./js/websites.js";
 
 // ---------------------------------------------------------------------------
 // Navigation
@@ -74,12 +8,7 @@ function formatUptime(seconds) {
 
 const SECTIONS = [
   { path: "/", label: "Dashboard" },
-  {
-    path: "/websites",
-    label: "Websites",
-    soon: true,
-    plan: ["Create sites with their own PHP version", "Free SSL certificates that renew themselves", "Redirects, aliases and access logs"],
-  },
+  { path: "/websites", label: "Websites" },
   {
     path: "/databases",
     label: "Databases",
@@ -117,15 +46,6 @@ const SECTIONS = [
     plan: ["Accounts for your clients", "Hosting packages with limits", "Resellers"],
   },
 ];
-
-const route = ref(location.pathname);
-window.addEventListener("popstate", () => (route.value = location.pathname));
-
-function navigate(path) {
-  if (path === route.value) return;
-  history.pushState({}, "", path);
-  route.value = path;
-}
 
 // ---------------------------------------------------------------------------
 // Views
@@ -291,11 +211,17 @@ const PlannedView = {
 };
 
 const ShellView = {
-  components: { DashboardView, PlannedView },
+  components: { DashboardView, PlannedView, WebsitesView, WebsiteDetailView },
   setup() {
     const current = computed(
-      () => SECTIONS.find((s) => s.path === route.value) || SECTIONS[0],
+      () =>
+        SECTIONS.find((s) => s.path !== "/" && (route.value === s.path || route.value.startsWith(s.path + "/"))) ||
+        SECTIONS[0],
     );
+    const detail = computed(() => {
+      const match = route.value.match(/^\/websites\/([^/]+)$/);
+      return match ? decodeURIComponent(match[1]) : null;
+    });
     const busy = ref(false);
 
     async function signOut() {
@@ -311,7 +237,7 @@ const ShellView = {
     }
 
     const roleNames = { admin: "Administrator", reseller: "Reseller", user: "Client" };
-    return { sections: SECTIONS, current, session, navigate, signOut, busy, roleNames };
+    return { sections: SECTIONS, current, detail, route, session, navigate, signOut, busy, roleNames };
   },
   template: `
     <div class="shell">
@@ -336,6 +262,8 @@ const ShellView = {
       </aside>
       <main class="main">
         <DashboardView v-if="current.path === '/'" />
+        <WebsiteDetailView v-else-if="detail" :key="detail" :domain="detail" />
+        <WebsitesView v-else-if="current.path === '/websites'" />
         <PlannedView v-else :section="current" />
       </main>
     </div>

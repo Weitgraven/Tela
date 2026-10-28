@@ -4,9 +4,10 @@ Tela is a free, open-source web hosting control panel: websites, email, DNS,
 databases and backups on your own server, managed from one panel. Every
 feature is free. There are no paid add-ons and no premium tier.
 
-> **Status: early development.** Milestone 1 (installer, login, server
-> dashboard) is done. Hosting features are being added milestone by milestone,
-> see the [roadmap](#roadmap). Don't run it on a production server yet.
+> **Status: early development.** Milestones 1 and 2 (installer, login,
+> dashboard, websites with SSL) are done. Hosting features are being added
+> milestone by milestone, see the [roadmap](#roadmap). Don't run it on a
+> production server yet.
 
 ## Install
 
@@ -41,19 +42,41 @@ curl -sSL https://raw.githubusercontent.com/Weitgraven/Tela/main/install.sh \
 | `--hostname NAME` | unchanged | Set the server's hostname |
 | `--port PORT` | `8090` | Port the panel listens on |
 | `--php VERSION` | `8.3` | Default PHP version |
+
+PHP 8.1, 8.2, 8.3 and 8.4 are installed so each website can choose its own.
+Set `TELA_PHP_VERSIONS` to install a different set.
 | `--branch NAME` | `main` | Git branch to install |
 
 ### What gets installed
 
 | Component | Purpose |
 | --- | --- |
-| OpenLiteSpeed + LSPHP | Web server and PHP |
+| OpenLiteSpeed + LSPHP 8.1–8.4 | Web server and PHP |
+| Certbot | Free Let's Encrypt certificates, renewed automatically |
 | MariaDB | Databases (local connections only) |
 | Tela panel | Web interface, `tela-panel` service, port 8090 |
 | Tela agent | Privileged helper, `tela-agent` service, Unix socket only |
 
 Coming in later milestones: PowerDNS, Postfix, Dovecot, Rspamd, SnappyMail,
-Pure-FTPd, acme.sh, phpMyAdmin, restic, nftables and Fail2ban.
+Pure-FTPd, phpMyAdmin, restic, nftables and Fail2ban.
+
+## Websites
+
+Add a website under **Websites** in the panel. Each website gets:
+
+- its own Linux user, so PHP from one site can't read another site's files;
+- a home folder `/home/<domain>/` with `public_html/` for your files and
+  `logs/` for its access and error logs;
+- its own PHP version, switchable at any time;
+- extra domain names (www is added automatically);
+- a free Let's Encrypt certificate once the domain's DNS points at the server,
+  and an optional redirect of all visitors to HTTPS.
+
+Tela owns the web server configuration it generates:
+`/usr/local/lsws/conf/tela/` and `/usr/local/lsws/conf/vhosts/<domain>/`.
+These files are rebuilt on every change, so don't edit them by hand; use
+`.htaccess` in `public_html` for per-site rules instead. If the web server
+fails to start after a change, Tela restores the previous configuration.
 
 ### Upgrading
 
@@ -147,7 +170,7 @@ reload.
 ## Roadmap
 
 1. ~~Installer, login, server dashboard~~
-2. Websites: virtual hosts, PHP versions, Let's Encrypt SSL
+2. ~~Websites: virtual hosts, PHP versions, Let's Encrypt SSL~~
 3. Databases: MariaDB databases and users, phpMyAdmin with single sign-on
 4. DNS: PowerDNS, automatic zones
 5. Email: Postfix, Dovecot, Rspamd, DKIM/SPF/DMARC, webmail

@@ -21,11 +21,13 @@ class AgentClient:
         self.socket_path = socket_path
         self.timeout = timeout
 
-    def call(self, action: str, params: dict[str, Any] | None = None) -> Any:
+    def call(
+        self, action: str, params: dict[str, Any] | None = None, *, timeout: float | None = None
+    ) -> Any:
         payload = json.dumps({"action": action, "params": params or {}}).encode() + b"\n"
         try:
             with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
-                sock.settimeout(self.timeout)
+                sock.settimeout(timeout or self.timeout)
                 sock.connect(str(self.socket_path))
                 sock.sendall(payload)
                 chunks: list[bytes] = []

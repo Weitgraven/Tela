@@ -20,6 +20,8 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S105", "S106"]
+# Site directories need group/other access so the web server can serve them.
+"src/tela_agent/actions/websites.py" = ["S103"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

@@ -48,6 +48,16 @@ MIGRATIONS: list[str] = [
         detail  TEXT
     );
     """,
+    # 2: websites (config lives with the agent; the panel tracks ownership)
+    """
+    CREATE TABLE websites (
+        id         INTEGER PRIMARY KEY,
+        domain     TEXT NOT NULL UNIQUE,
+        owner_id   INTEGER REFERENCES users(id) ON DELETE RESTRICT,
+        created_at INTEGER NOT NULL
+    );
+    CREATE INDEX websites_owner ON websites(owner_id);
+    """,
 ]
 
 

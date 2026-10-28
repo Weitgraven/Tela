@@ -12,6 +12,7 @@ set -Eeuo pipefail
 TELA_REPO="${TELA_REPO:-https://github.com/Weitgraven/Tela.git}"
 TELA_BRANCH="${TELA_BRANCH:-main}"
 TELA_DIR="${TELA_DIR:-/opt/tela}"
+TELA_PHP_VERSIONS="${TELA_PHP_VERSIONS:-8.1 8.2 8.3 8.4}"
 
 usage() {
   cat <<'EOF'
@@ -20,12 +21,13 @@ Usage: install.sh [options]
 Options:
   --hostname NAME     Set the server hostname (e.g. server1.example.com)
   --port PORT         Panel port (default 8090)
-  --php VERSION       Default PHP version for new sites (default 8.3)
+  --php VERSION       Default PHP version (default 8.3)
   --branch NAME       Git branch to install from (default main)
   -h, --help          Show this help
 
 Environment:
   TELA_REPO, TELA_BRANCH, TELA_DIR    Where to get Tela from and install it to
+  TELA_PHP_VERSIONS="8.1 8.2 8.3 8.4"  PHP versions to install next to the default
   TELA_ALLOW_UNSUPPORTED=1            Try to install on an unsupported OS
 EOF
 }
@@ -44,7 +46,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
   esac
 done
-export TELA_REPO TELA_BRANCH TELA_DIR TELA_HOSTNAME TELA_PORT TELA_PHP
+export TELA_REPO TELA_BRANCH TELA_DIR TELA_HOSTNAME TELA_PORT TELA_PHP TELA_PHP_VERSIONS
 
 if [[ $EUID -ne 0 ]]; then
   echo "Run the installer as root (for example with sudo)." >&2

@@ -1,3 +1,3 @@
 """Importing this package registers every action module."""
 
-from . import system  # noqa: F401
+from . import system, websites  # noqa: F401

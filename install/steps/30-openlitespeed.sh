@@ -1,7 +1,5 @@
 # shellcheck shell=bash
-step "Installing OpenLiteSpeed and PHP $TELA_PHP"
-
-php_pkg="lsphp${TELA_PHP/./}"
+step "Installing OpenLiteSpeed and PHP"
 
 if ! compgen -G "/etc/apt/sources.list.d/lst_debian_repo*" >/dev/null; then
   repo_script="$(mktemp)"
@@ -14,31 +12,41 @@ fi
 
 first_install=0
 is_installed openlitespeed || first_install=1
+apt_install openlitespeed
 
-apt_install openlitespeed "$php_pkg" "${php_pkg}-common" "${php_pkg}-mysql"
-
+# Install every supported PHP version so each site can pick its own. The default
+# version (--php) is required; the others are installed when available.
 # Extensions most PHP apps (WordPress, Laravel, ...) expect. Not every one exists
-# for every PHP version, so a missing one is a warning, not a failure.
-for ext in curl intl imagick opcache redis memcached imap ldap sqlite3 tidy; do
-  pkg="${php_pkg}-${ext}"
-  if is_installed "$pkg"; then
+# for every PHP version, so a missing one is skipped.
+php_extensions=(common mysql curl intl imagick opcache redis memcached imap ldap sqlite3 tidy)
+installed_php=()
+for version in $TELA_PHP_VERSIONS "$TELA_PHP"; do
+  php_pkg="lsphp${version/./}"
+  [[ " ${installed_php[*]} " == *" $version "* ]] && continue
+  if ! apt-cache show "$php_pkg" >/dev/null 2>&1; then
+    if [[ "$version" == "$TELA_PHP" ]]; then
+      die "PHP $version ($php_pkg) is not available from the LiteSpeed repository"
+    fi
+    echo "skipped $php_pkg (not available)" >>"$LOG_FILE"
     continue
   fi
-  if apt-cache show "$pkg" >/dev/null 2>&1; then
-    apt_install "$pkg"
-  else
-    echo "skipped $pkg (not available)" >>"$LOG_FILE"
-  fi
+  wanted=("$php_pkg")
+  for ext in "${php_extensions[@]}"; do
+    pkg="${php_pkg}-${ext}"
+    if is_installed "$pkg" || apt-cache show "$pkg" >/dev/null 2>&1; then
+      wanted+=("$pkg")
+    else
+      echo "skipped $pkg (not available)" >>"$LOG_FILE"
+    fi
+  done
+  apt_install "${wanted[@]}"
+  installed_php+=("$version")
 done
-ok "OpenLiteSpeed with $php_pkg installed"
+ok "OpenLiteSpeed with PHP ${installed_php[*]}"
 
-httpd_conf="$OLS_ROOT/conf/httpd_config.conf"
 admin_conf="$OLS_ROOT/admin/conf/admin_config.conf"
 
 if ((first_install)); then
-  # Serve on port 80 instead of the demo port 8088.
-  sed -i -E 's/^(\s*address\s+)\*:8088\s*$/\1*:80/' "$httpd_conf"
-
   # The OpenLiteSpeed WebAdmin console is only reachable from the server itself
   # (use an SSH tunnel). Tela manages the web server; you shouldn't need it.
   sed -i -E 's/^(\s*address\s+)\*:7080\s*$/\1127.0.0.1:7080/' "$admin_conf"
@@ -52,9 +60,10 @@ if ((first_install)); then
   ok "WebAdmin console limited to localhost"
 fi
 
-# Point the default PHP handler at the chosen version.
-if [[ -x "$OLS_ROOT/$php_pkg/bin/lsphp" ]]; then
-  ln -sf "$OLS_ROOT/$php_pkg/bin/lsphp" "$OLS_ROOT/fcgi-bin/lsphp"
+# Point the server-wide PHP handler at the default version.
+default_php="$OLS_ROOT/lsphp${TELA_PHP/./}/bin/lsphp"
+if [[ -x "$default_php" ]]; then
+  ln -sf "$default_php" "$OLS_ROOT/fcgi-bin/lsphp"
 fi
 
 run systemctl enable lsws

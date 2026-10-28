@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import os
+import socket
 import threading
 import time
 from collections.abc import Iterator
@@ -15,7 +16,10 @@ from tela import auth
 from tela.app import create_app
 from tela.config import REPO_ROOT, Config
 from tela.db import connect, migrate
+from tela_agent import settings, sysops
 from tela_agent.server import AgentServer
+
+from .fakes import FakeSystem
 
 ADMIN_PASSWORD = "correct-horse-battery"
 
@@ -34,10 +38,16 @@ def running_agent(path: Path, uids: set[int]) -> Iterator[Path]:
 
     thread = threading.Thread(target=run, daemon=True)
     thread.start()
-    for _ in range(100):
+    # Wait until the agent accepts connections (the socket file appears just before).
+    for _ in range(200):
         if path.exists():
-            break
-        time.sleep(0.02)
+            try:
+                with socket.socket(socket.AF_UNIX) as probe:
+                    probe.connect(str(path))
+                break
+            except OSError:
+                pass
+        time.sleep(0.01)
     try:
         yield path
     finally:
@@ -75,3 +85,48 @@ def sign_in(client: TestClient, username: str = "admin", password: str = ADMIN_P
     response = client.post("/api/auth/login", json={"username": username, "password": password})
     assert response.status_code == 200, response.text
     return response.json()["csrf"]
+
+
+STOCK_HTTPD = """\
+serverName
+user                      nobody
+group                     nogroup
+
+listener Default{
+  address                 *:8088
+  secure                  0
+  map                     Example *
+}
+
+extprocessor lsphp {
+  type                    lsapi
+}
+
+virtualhost Example{
+  vhRoot                  Example/
+  configFile              $SERVER_ROOT/conf/vhosts/$VH_NAME/vhconf.conf
+}
+
+module cache {
+  ls_enabled              1
+}
+"""
+
+
+@pytest.fixture
+def host(tmp_path, monkeypatch):
+    ols_root = tmp_path / "lsws"
+    (ols_root / "conf").mkdir(parents=True)
+    (ols_root / "conf" / "httpd_config.conf").write_text(STOCK_HTTPD)
+    env = {
+        "TELA_OLS_ROOT": ols_root,
+        "TELA_SITES_ROOT": tmp_path / "home",
+        "TELA_STATE_DIR": tmp_path / "state",
+        "TELA_LETSENCRYPT_DIR": tmp_path / "letsencrypt",
+    }
+    for key, value in env.items():
+        monkeypatch.setenv(key, str(value))
+    fake = FakeSystem()
+    fake.letsencrypt = tmp_path / "letsencrypt"
+    monkeypatch.setattr(sysops, "system", fake)
+    return fake, settings.load()

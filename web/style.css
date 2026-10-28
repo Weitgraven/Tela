@@ -289,6 +289,13 @@ input {
   display: grid;
   grid-template-columns: var(--sidebar) minmax(0, 1fr);
   min-height: 100vh;
+  /* keeps the sidebar column filled when the page scrolls past the sticky sidebar */
+  background: linear-gradient(
+    to right,
+    var(--surface) calc(var(--sidebar) - 1px),
+    var(--line) calc(var(--sidebar) - 1px) var(--sidebar),
+    transparent var(--sidebar)
+  );
 }
 
 .sidebar {
@@ -394,10 +401,13 @@ input {
 @media (max-width: 860px) {
   .shell {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    background: none;
   }
   .sidebar {
     position: static;
     height: auto;
+    align-content: flex-start;
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
@@ -526,7 +536,7 @@ input {
 }
 .state {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.4rem;
   font-size: var(--step--1);
   font-weight: 500;
@@ -534,6 +544,8 @@ input {
 }
 .state::before {
   content: "";
+  flex: none;
+  margin-top: 0.42em;
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -586,5 +598,263 @@ input {
   }
   .meter-fill {
     transition: none;
+  }
+}
+
+/* Forms (shared) ---------------------------------------------------------- */
+.field select {
+  min-height: 2.75rem;
+  padding: 0 2.25rem 0 0.875rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--surface)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%235a6380' stroke-width='1.6'%3E%3Cpath d='M1 1.5l5 5 5-5'/%3E%3C/svg%3E")
+    no-repeat right 0.875rem center;
+  appearance: none;
+  font: inherit;
+  color: inherit;
+}
+.field select:focus-visible {
+  outline-offset: 0;
+  border-color: var(--focus);
+}
+
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  cursor: pointer;
+}
+.check input {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0.2rem 0 0;
+  accent-color: var(--accent);
+  flex: none;
+}
+.check input:disabled + span {
+  color: var(--text-muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+.inline-form .field {
+  flex: 1 1 14rem;
+}
+
+.form-panel {
+  display: grid;
+  gap: 1.125rem;
+  margin-bottom: 1.5rem;
+  max-width: 44rem;
+}
+.form-panel h2 {
+  margin-bottom: 0;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.button-secondary {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--line);
+  text-decoration: none;
+}
+.button-secondary:hover {
+  background: var(--line-faint);
+}
+.button-danger {
+  background: var(--madder);
+  color: #fff;
+}
+.button-danger:hover {
+  background: color-mix(in srgb, var(--madder) 85%, black);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+.notice {
+  margin: 0;
+  padding: 0.75rem 0.875rem;
+  border-left: 3px solid var(--weld);
+  background: color-mix(in srgb, var(--weld) 10%, transparent);
+  border-radius: 0 var(--radius-s) var(--radius-s) 0;
+}
+
+code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.875em;
+  overflow-wrap: anywhere;
+}
+
+/* Websites ---------------------------------------------------------------- */
+.table-panel {
+  padding: 0;
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.table th {
+  text-align: left;
+  font-size: var(--step--1);
+  font-weight: 500;
+  color: var(--text-muted);
+  padding: 0.875rem 1.5rem 0.625rem;
+  border-bottom: 1px solid var(--line);
+}
+.table td {
+  padding: 0.875rem 1.5rem;
+  border-bottom: 1px solid var(--line-faint);
+  vertical-align: top;
+}
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.table tbody tr {
+  cursor: pointer;
+}
+.table tbody tr:hover {
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+}
+.table a {
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+.table a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.table small {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--step--1);
+}
+
+.empty {
+  max-width: 34rem;
+  display: grid;
+  gap: 0.75rem;
+  justify-items: start;
+}
+.empty h2,
+.empty p {
+  margin: 0;
+}
+.empty p {
+  color: var(--text-muted);
+}
+
+.crumbs {
+  margin-bottom: 0.5rem;
+  font-size: var(--step--1);
+}
+.crumbs a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.crumbs a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.detail {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  align-items: start;
+}
+.detail .panel {
+  display: grid;
+  gap: 1rem;
+}
+.detail .panel h2,
+.detail .panel p {
+  margin: 0;
+}
+.panel-danger {
+  border-color: color-mix(in srgb, var(--madder) 45%, var(--line));
+}
+
+.ssl-status .state {
+  font-size: var(--step-0);
+}
+.state[data-state="valid"] {
+  color: var(--weld);
+}
+.state[data-state="valid"]::before {
+  background: var(--weld);
+}
+.state[data-state="expiring"] {
+  color: #9a6a00;
+}
+.state[data-state="expiring"]::before {
+  background: #c99000;
+}
+.state[data-state="expired"] {
+  color: var(--madder);
+}
+.state[data-state="expired"]::before {
+  background: var(--madder);
+}
+
+.alias-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.alias-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 2.5rem;
+  border-top: 1px solid var(--line-faint);
+  overflow-wrap: anywhere;
+}
+.alias-list li:first-child {
+  border-top: 0;
+}
+.alias-primary span:first-child {
+  font-weight: 600;
+}
+.alias-primary .muted {
+  font-size: var(--step--1);
+}
+
+@media (max-width: 960px) {
+  .detail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 560px) {
+  .form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .table th:nth-child(4),
+  .table td:nth-child(4) {
+    display: none;
+  }
+}
+@media (prefers-color-scheme: dark) {
+  .state[data-state="expiring"] {
+    color: #e3b341;
   }
 }
