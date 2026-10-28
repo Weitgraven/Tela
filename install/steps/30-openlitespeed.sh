@@ -10,8 +10,6 @@ if ! compgen -G "/etc/apt/sources.list.d/lst_debian_repo*" >/dev/null; then
   ok "LiteSpeed package repository added"
 fi
 
-first_install=0
-is_installed openlitespeed || first_install=1
 apt_install openlitespeed
 
 # Install every supported PHP version so each site can pick its own. The default
@@ -46,7 +44,11 @@ ok "OpenLiteSpeed with PHP ${installed_php[*]}"
 
 admin_conf="$OLS_ROOT/admin/conf/admin_config.conf"
 
-if ((first_install)); then
+# One-time hardening of a fresh OpenLiteSpeed install. Tracked with a marker file
+# rather than "was the package just installed", so a re-run after a failed
+# install still applies it.
+ols_marker="$OLS_ROOT/conf/.tela-initialized"
+if [[ ! -f "$ols_marker" ]]; then
   # The OpenLiteSpeed WebAdmin console is only reachable from the server itself
   # (use an SSH tunnel). Tela manages the web server; you shouldn't need it.
   sed -i -E 's/^(\s*address\s+)\*:7080\s*$/\1127.0.0.1:7080/' "$admin_conf"
@@ -58,6 +60,7 @@ if ((first_install)); then
   chmod 600 "$OLS_ROOT/admin/conf/htpasswd"
   save_credential "OpenLiteSpeed WebAdmin" "admin / $ols_pass (https://127.0.0.1:7080)"
   ok "WebAdmin console limited to localhost"
+  touch "$ols_marker"
 fi
 
 # Point the server-wide PHP handler at the default version.
@@ -66,6 +69,6 @@ if [[ -x "$default_php" ]]; then
   ln -sf "$default_php" "$OLS_ROOT/fcgi-bin/lsphp"
 fi
 
-run systemctl enable lsws
+enable_service lsws
 run systemctl restart lsws
 ok "Web server running"

@@ -12,7 +12,8 @@ if ((changed)); then
   run systemctl daemon-reload
 fi
 
-run systemctl enable tela-agent tela-panel
+enable_service tela-agent
+enable_service tela-panel
 # Restart so an upgrade picks up new code.
 run systemctl restart tela-agent
 run systemctl restart tela-panel

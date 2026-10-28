@@ -2,7 +2,8 @@
 step "Setting up websites and SSL"
 
 apt_install certbot
-run systemctl enable --now certbot.timer
+enable_service certbot.timer
+run systemctl start certbot.timer
 ok "Let's Encrypt client installed; certificates renew automatically"
 
 # Renewed certificates only take effect after the web server reloads them.
