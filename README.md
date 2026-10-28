@@ -11,7 +11,7 @@ feature is free. There are no paid add-ons and no premium tier.
 
 ## Install
 
-On a fresh **Ubuntu 24.04** server (2 GB memory or more), as root:
+On a fresh **Ubuntu 24.04 or 26.04** server (2 GB memory or more), as root:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/Weitgraven/Tela/main/install.sh | sudo bash

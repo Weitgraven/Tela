@@ -3,11 +3,12 @@ step "Checking this server"
 
 # shellcheck source=/dev/null
 . /etc/os-release
-if [[ "${ID:-}" != "ubuntu" || "${VERSION_ID:-}" != "24.04" ]]; then
+SUPPORTED_UBUNTU="24.04 26.04"
+if [[ "${ID:-}" != "ubuntu" || " $SUPPORTED_UBUNTU " != *" ${VERSION_ID:-} "* ]]; then
   if [[ "${TELA_ALLOW_UNSUPPORTED:-}" == "1" ]]; then
     warn "${PRETTY_NAME:-unknown OS} is not supported; continuing because TELA_ALLOW_UNSUPPORTED=1"
   else
-    die "Tela supports Ubuntu 24.04 only. This server runs ${PRETTY_NAME:-an unknown OS}."
+    die "Tela supports Ubuntu 24.04 and 26.04. This server runs ${PRETTY_NAME:-an unknown OS}."
   fi
 fi
 ok "${PRETTY_NAME}"
