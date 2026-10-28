@@ -1,6 +1,7 @@
 import { createApp, ref, computed, onMounted, onUnmounted } from "./vendor/vue.esm-browser.prod.js";
 import { api, session, route, navigate, formatBytes, formatUptime } from "./js/core.js";
 import { WebsitesView, WebsiteDetailView } from "./js/websites.js";
+import { DatabasesView } from "./js/databases.js";
 
 // ---------------------------------------------------------------------------
 // Navigation
@@ -9,12 +10,7 @@ import { WebsitesView, WebsiteDetailView } from "./js/websites.js";
 const SECTIONS = [
   { path: "/", label: "Dashboard" },
   { path: "/websites", label: "Websites" },
-  {
-    path: "/databases",
-    label: "Databases",
-    soon: true,
-    plan: ["MariaDB databases and users per site", "phpMyAdmin with single sign-on"],
-  },
+  { path: "/databases", label: "Databases" },
   {
     path: "/dns",
     label: "DNS",
@@ -211,7 +207,7 @@ const PlannedView = {
 };
 
 const ShellView = {
-  components: { DashboardView, PlannedView, WebsitesView, WebsiteDetailView },
+  components: { DashboardView, PlannedView, WebsitesView, WebsiteDetailView, DatabasesView },
   setup() {
     const current = computed(
       () =>
@@ -264,6 +260,7 @@ const ShellView = {
         <DashboardView v-if="current.path === '/'" />
         <WebsiteDetailView v-else-if="detail" :key="detail" :domain="detail" />
         <WebsitesView v-else-if="current.path === '/websites'" />
+        <DatabasesView v-else-if="current.path === '/databases'" />
         <PlannedView v-else :section="current" />
       </main>
     </div>

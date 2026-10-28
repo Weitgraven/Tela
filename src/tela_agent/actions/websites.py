@@ -327,11 +327,18 @@ def delete_site(params: dict[str, Any]) -> dict[str, Any]:
     paths = _paths()
     domain = validate.domain(params.get("domain"))
     remove_files = validate.boolean(params.get("remove_files"), default=True)
+    remove_databases = validate.boolean(params.get("remove_databases"), default=remove_files)
     with _lock:
         sites = load_sites(paths)
         site = next((s for s in sites if s.domain == domain), None)
         if site is None:
             raise ActionError(f"no website {domain}")
+        kept_databases = [] if remove_databases else list(site.databases)
+        if remove_databases and site.databases:
+            from .databases import drop_all
+
+            drop_all(paths, site)
+            _save_site(paths, site)
         remaining = [s for s in sites if s.domain != domain]
         _apply(paths, remaining, removed=[domain])
         _state_file(paths, domain).unlink(missing_ok=True)
@@ -340,7 +347,7 @@ def delete_site(params: dict[str, Any]) -> dict[str, Any]:
         if remove_files:
             sysops.system.remove_tree(site.home)
             sysops.system.delete_site_user(site.user)
-    return {"domain": domain, "files_removed": remove_files}
+    return {"domain": domain, "files_removed": remove_files, "kept_databases": kept_databases}
 
 
 @action("website.ssl_issue")

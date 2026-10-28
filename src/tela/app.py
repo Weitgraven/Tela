@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from . import __version__
 from .agent_client import AgentClient
 from .api import auth as auth_api
+from .api import databases as databases_api
 from .api import system as system_api
 from .api import websites as websites_api
 from .config import Config
@@ -53,6 +54,7 @@ def create_app(config: Config) -> FastAPI:
     app.include_router(auth_api.router)
     app.include_router(system_api.router)
     app.include_router(websites_api.router)
+    app.include_router(databases_api.router)
 
     @app.get("/api/health")
     def health():

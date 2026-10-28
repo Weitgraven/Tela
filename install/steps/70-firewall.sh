@@ -5,10 +5,10 @@ step "Checking the firewall"
 # the ports it needs if ufw is already active, and never enables a firewall
 # itself (that could lock you out of SSH).
 if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "^Status: active"; then
-  for port in 80/tcp 443/tcp 443/udp "$TELA_PORT/tcp"; do
+  for port in 80/tcp 443/tcp 443/udp "$TELA_PORT/tcp" "$TELA_PMA_PORT/tcp"; do
     run ufw allow "$port"
   done
-  ok "Opened 80, 443 and $TELA_PORT in ufw"
+  ok "Opened 80, 443, $TELA_PORT and $TELA_PMA_PORT in ufw"
 else
-  info "No active firewall found. Make sure ports 80, 443 and $TELA_PORT are reachable."
+  info "No active firewall found. Make sure ports 80, 443, $TELA_PORT and $TELA_PMA_PORT are reachable."
 fi

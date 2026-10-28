@@ -44,6 +44,7 @@ class Site:
     ssl_names: list[str] = field(default_factory=list)
     ssl_expires_at: int | None = None
     created_at: int = 0
+    databases: list[str] = field(default_factory=list)
 
     @property
     def processor(self) -> str:
@@ -70,6 +71,7 @@ class Site:
             "ssl_names": self.ssl_names,
             "ssl_expires_at": self.ssl_expires_at,
             "created_at": self.created_at,
+            "databases": self.databases,
         }
 
     @classmethod
@@ -86,6 +88,7 @@ class Site:
             ssl_names=list(data.get("ssl_names", [])),
             ssl_expires_at=data.get("ssl_expires_at"),
             created_at=int(data.get("created_at", 0)),
+            databases=list(data.get("databases", [])),
         )
 
 
@@ -291,6 +294,100 @@ def render_listeners(sites: Iterable[Site], paths: Paths) -> str:
 
 
 # ---------------------------------------------------------------------------
+# phpMyAdmin: its own virtual host on its own HTTPS port, PHP running as the
+# dedicated tela-pma user, reusing the panel's certificate.
+# ---------------------------------------------------------------------------
+
+PMA_VHOST = "TelaPhpMyAdmin"
+
+
+def _pma_php(paths: Paths) -> Path:
+    preferred = paths.ols_root / f"lsphp{paths.default_php.replace('.', '')}" / "bin" / "lsphp"
+    if preferred.exists():
+        return preferred
+    installed = sorted(paths.ols_root.glob("lsphp[0-9][0-9]/bin/lsphp"))
+    return installed[-1] if installed else preferred
+
+
+def render_pma_vhost_block(paths: Paths) -> str:
+    return (
+        HEADER
+        + f"virtualhost {PMA_VHOST} {{\n"
+        + _kv("vhRoot", f"{paths.pma_root}/")
+        + _kv("configFile", paths.vhost_conf_root / PMA_VHOST / "vhconf.conf")
+        + _kv("allowSymbolLink", 0)
+        + _kv("enableScript", 1)
+        + _kv("restrained", 1)
+        + "}\n"
+    )
+
+
+def render_pma_vhconf(paths: Paths) -> str:
+    return "".join(
+        [
+            HEADER,
+            _kv("docRoot", "$VH_ROOT", 0),
+            "\nindex {\n",
+            _kv("useServer", 0),
+            _kv("indexFiles", "index.php"),
+            _kv("autoIndex", 0),
+            "}\n",
+            "\nscripthandler {\n",
+            _kv("add", "lsapi:tela_pma php"),
+            "}\n",
+            "\nextprocessor tela_pma {\n",
+            _kv("type", "lsapi"),
+            _kv("address", "UDS://tmp/lshttpd/tela_pma.sock"),
+            _kv("maxConns", 5),
+            _kv("env", "LSAPI_CHILDREN=5"),
+            _kv("initTimeout", 60),
+            _kv("retryTimeout", 0),
+            _kv("persistConn", 1),
+            _kv("respBuffer", 0),
+            _kv("autoStart", 1),
+            _kv("path", _pma_php(paths)),
+            _kv("extUser", paths.pma_user),
+            _kv("extGroup", paths.pma_user),
+            _kv("memSoftLimit", "1024M"),
+            _kv("memHardLimit", "1024M"),
+            "}\n",
+            # Never serve phpMyAdmin's internals or temporary files directly.
+            "".join(
+                f"\ncontext /{d}/ {{\n" + _kv("allowBrowse", 0) + "}\n"
+                for d in ("libraries", "src", "templates", "vendor", "tmp", "setup", "sql")
+            ),
+            "\nrewrite {\n",
+            _kv("enable", 0),
+            "}\n",
+            # Sessions in a directory only phpMyAdmin's PHP user can use.
+            "\nphpIniOverride {\n",
+            f"php_admin_value session.save_path {paths.pma_tokens.parent / 'sessions'}\n",
+            "php_admin_value upload_max_filesize 256M\n",
+            "php_admin_value post_max_size 256M\n",
+            "php_admin_value max_execution_time 600\n",
+            "}\n",
+        ]
+    )
+
+
+def render_pma_listener(paths: Paths) -> str:
+    return (
+        "\nlistener TelaPhpMyAdmin {\n"
+        + _kv("address", f"*:{paths.pma_port}")
+        + _kv("secure", 1)
+        + _kv("keyFile", paths.panel_key)
+        + _kv("certFile", paths.panel_cert)
+        + _kv("certChain", 0)
+        + _kv("sslProtocol", 24)
+        + _kv("enableECDHE", 1)
+        + _kv("renegProtection", 1)
+        + _kv("sslSessionCache", 1)
+        + _kv("map", f"{PMA_VHOST} *")
+        + "}\n"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Writing
 # ---------------------------------------------------------------------------
 
@@ -300,13 +397,18 @@ def desired_files(sites: list[Site], paths: Paths) -> dict[Path, str]:
     for site in sites:
         files[paths.tela_conf_dir / f"vhost-{site.domain}.conf"] = render_vhost_block(site, paths)
         files[paths.vhost_conf_root / site.domain / "vhconf.conf"] = render_vhconf(site, paths)
-    files[paths.tela_conf_dir / "zz-listeners.conf"] = render_listeners(sites, paths)
+    listeners = render_listeners(sites, paths)
+    if paths.pma_installed:
+        files[paths.tela_conf_dir / "phpmyadmin.conf"] = render_pma_vhost_block(paths)
+        files[paths.vhost_conf_root / PMA_VHOST / "vhconf.conf"] = render_pma_vhconf(paths)
+        listeners += render_pma_listener(paths)
+    files[paths.tela_conf_dir / "zz-listeners.conf"] = listeners
     return files
 
 
 def snapshot(paths: Paths, extra: Iterable[Path] = ()) -> dict[Path, str | None]:
     """Current content of every file Tela manages (None if missing), for rollback."""
-    targets = {paths.httpd_config, *extra}
+    targets = {paths.httpd_config, paths.vhost_conf_root / PMA_VHOST / "vhconf.conf", *extra}
     if paths.tela_conf_dir.exists():
         targets.update(paths.tela_conf_dir.glob("*.conf"))
     return {p: (p.read_text() if p.exists() else None) for p in targets}
@@ -337,6 +439,8 @@ def write(sites: list[Site], paths: Paths, removed: Iterable[str] = ()) -> list[
         write_atomic(path, content, 0o640)
 
     keep = {f"vhost-{s.domain}.conf" for s in sites} | {"zz-listeners.conf"}
+    if paths.pma_installed:
+        keep.add("phpmyadmin.conf")
     for stale in paths.tela_conf_dir.glob("*.conf"):
         if stale.name not in keep:
             stale.unlink()

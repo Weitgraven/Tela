@@ -57,6 +57,9 @@ idle_minutes = 120
 
 [defaults]
 php_version = "$TELA_PHP"
+
+[phpmyadmin]
+port = $TELA_PMA_PORT
 EOF
   chown root:"$TELA_USER" "$conf"
   chmod 0640 "$conf"

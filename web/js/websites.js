@@ -350,7 +350,7 @@ export const WebsiteDetailView = {
           <p class="muted">The site stops working immediately and its certificate is removed from this server.</p>
           <label class="check">
             <input type="checkbox" v-model="removeFiles">
-            <span>Also delete all files in {{ site.home }} and the system user</span>
+            <span>Also delete its databases, all files in {{ site.home }} and the system user</span>
           </label>
           <form class="inline-form" @submit.prevent="remove">
             <div class="field">

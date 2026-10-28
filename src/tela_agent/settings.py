@@ -1,8 +1,11 @@
-"""Filesystem locations the agent manages. Overridable through the environment for tests."""
+"""Filesystem locations and settings the agent uses. Overridable through the
+environment for tests; the [phpmyadmin] and [panel] sections of /etc/tela/tela.conf
+are read for the phpMyAdmin listener."""
 
 from __future__ import annotations
 
 import os
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -13,6 +16,14 @@ class Paths:
     sites_root: Path
     state_dir: Path
     letsencrypt: Path
+    mysql_socket: Path = Path("/run/mysqld/mysqld.sock")
+    pma_root: Path = Path("/opt/tela-phpmyadmin")
+    pma_tokens: Path = Path("/var/lib/tela-pma/tokens")
+    pma_port: int = 8091
+    pma_user: str = "tela-pma"
+    panel_cert: Path = Path("/etc/tela/ssl/panel.crt")
+    panel_key: Path = Path("/etc/tela/ssl/panel.key")
+    default_php: str = "8.3"
 
     @property
     def httpd_config(self) -> Path:
@@ -35,12 +46,47 @@ class Paths:
     def default_key(self) -> Path:
         return self.ols_root / "conf" / "tela-default.key"
 
+    @property
+    def pma_installed(self) -> bool:
+        return (self.pma_root / "index.php").exists()
+
+    @property
+    def sso_users_file(self) -> Path:
+        return self.state_dir.parent / "pma-sso-users.json"
+
+
+def _tela_conf() -> dict:
+    path = Path(os.environ.get("TELA_CONFIG", "/etc/tela/tela.conf"))
+    try:
+        with path.open("rb") as fh:
+            return tomllib.load(fh)
+    except (OSError, tomllib.TOMLDecodeError):
+        return {}
+
 
 def load() -> Paths:
     env = os.environ.get
-    return Paths(
+    conf = _tela_conf()
+    panel = conf.get("panel", {})
+    pma = conf.get("phpmyadmin", {})
+    defaults = conf.get("defaults", {})
+    base = Paths(
         ols_root=Path(env("TELA_OLS_ROOT", "/usr/local/lsws")),
         sites_root=Path(env("TELA_SITES_ROOT", "/home")),
         state_dir=Path(env("TELA_STATE_DIR", "/etc/tela/sites")),
         letsencrypt=Path(env("TELA_LETSENCRYPT_DIR", "/etc/letsencrypt")),
+    )
+    return Paths(
+        ols_root=base.ols_root,
+        sites_root=base.sites_root,
+        state_dir=base.state_dir,
+        letsencrypt=base.letsencrypt,
+        mysql_socket=Path(env("TELA_MYSQL_SOCKET", str(base.mysql_socket))),
+        pma_root=Path(env("TELA_PMA_ROOT", pma.get("root", str(base.pma_root)))),
+        pma_tokens=Path(env("TELA_PMA_TOKENS", pma.get("tokens", str(base.pma_tokens)))),
+        pma_port=int(pma.get("port", base.pma_port)),
+        pma_user=str(pma.get("user", base.pma_user)),
+        panel_cert=Path(panel.get("tls_cert", str(base.panel_cert))),
+        panel_key=Path(panel.get("tls_key", str(base.panel_key))),
+        default_php=str(defaults.get("php_version", base.default_php)),
     )

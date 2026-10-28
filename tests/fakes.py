@@ -82,3 +82,37 @@ class FakeSystem(System):
 
     def cert_expiry(self, cert: Path) -> int | None:
         return 1_900_000_000
+
+
+class FakeMariaDB:
+    """In-memory stand-in for tela_agent.mariadb.MariaDB."""
+
+    def __init__(self) -> None:
+        self.databases: dict[str, int] = {}
+        self.users: dict[str, tuple[str, list[str]]] = {}
+
+    def database_exists(self, name: str) -> bool:
+        return name in self.databases
+
+    def user_exists(self, user: str) -> bool:
+        return user in self.users
+
+    def create_database(self, name: str, password: str) -> None:
+        self.databases[name] = 0
+        self.users[name] = (password, [name])
+
+    def drop_database(self, name: str) -> None:
+        self.databases.pop(name, None)
+        self.users.pop(name, None)
+
+    def set_password(self, user: str, password: str) -> None:
+        self.users[user] = (password, self.users[user][1])
+
+    def sizes(self, names: list[str]) -> dict[str, int]:
+        return {n: self.databases[n] for n in names if n in self.databases}
+
+    def create_temp_user(self, user: str, password: str, databases: list[str]) -> None:
+        self.users[user] = (password, list(databases))
+
+    def drop_user(self, user: str) -> None:
+        self.users.pop(user, None)

@@ -45,14 +45,14 @@ fi
 [[ "$TELA_PHP" =~ ^8\.[0-9]$ ]] || die "Invalid PHP version: $TELA_PHP (use e.g. 8.3)"
 
 # Ports must be free, unless something of ours already uses them (re-run).
-for port in 80 443 "$TELA_PORT"; do
+for port in 80 443 "$TELA_PORT" "$TELA_PMA_PORT"; do
   owner=$(ss -Hltnp "sport = :$port" 2>/dev/null | grep -o 'users:(("[^"]*"' | head -1 | cut -d'"' -f2 || true)
   case "$owner" in
     "" | litespeed | lshttpd | openlitespeed | python3 | python) ;;
     *) die "Port $port is already used by '$owner'. Stop it first." ;;
   esac
 done
-ok "Ports 80, 443 and $TELA_PORT are available"
+ok "Ports 80, 443, $TELA_PORT and $TELA_PMA_PORT are available"
 
 if [[ -n "$TELA_HOSTNAME" ]]; then
   [[ "$TELA_HOSTNAME" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]] \

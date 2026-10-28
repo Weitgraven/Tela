@@ -1,0 +1,37 @@
+<?php
+/**
+ * phpMyAdmin configuration, written by the Tela installer.
+ * Sign-in only works through the Tela panel (see tela-signon.php).
+ */
+
+declare(strict_types=1);
+
+$cfg['blowfish_secret'] = sodium_hex2bin('@BLOWFISH_SECRET@');
+
+$i = 1;
+$cfg['Servers'][$i]['auth_type'] = 'signon';
+$cfg['Servers'][$i]['SignonSession'] = 'TelaPMASignon';
+$cfg['Servers'][$i]['SignonCookieParams'] = [
+    'lifetime' => 0,
+    'path' => '/',
+    'domain' => '',
+    'secure' => true,
+    'httponly' => true,
+    'samesite' => 'Lax',
+];
+$cfg['Servers'][$i]['SignonURL'] = 'tela-signon.php';
+$cfg['Servers'][$i]['LogoutURL'] = 'tela-signon.php?logged_out=1';
+$cfg['Servers'][$i]['host'] = 'localhost';
+$cfg['Servers'][$i]['socket'] = '/run/mysqld/mysqld.sock';
+$cfg['Servers'][$i]['AllowNoPassword'] = false;
+$cfg['Servers'][$i]['AllowRoot'] = false;
+
+$cfg['TempDir'] = '@PMA_ROOT@/tmp';
+$cfg['UploadDir'] = '';
+$cfg['SaveDir'] = '';
+$cfg['VersionCheck'] = false;
+$cfg['ShowServerInfo'] = false;
+$cfg['ShowPhpInfo'] = false;
+$cfg['ShowChgPassword'] = false;
+$cfg['ShowCreateDb'] = false;
+$cfg['LoginCookieValidity'] = 3600;

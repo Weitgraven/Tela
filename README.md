@@ -4,8 +4,8 @@ Tela is a free, open-source web hosting control panel: websites, email, DNS,
 databases and backups on your own server, managed from one panel. Every
 feature is free. There are no paid add-ons and no premium tier.
 
-> **Status: early development.** Milestones 1 and 2 (installer, login,
-> dashboard, websites with SSL) are done. Hosting features are being added
+> **Status: early development.** Milestones 1–3 (installer, login,
+> dashboard, websites with SSL, databases with phpMyAdmin) are done. Hosting features are being added
 > milestone by milestone, see the [roadmap](#roadmap). Don't run it on a
 > production server yet.
 
@@ -54,11 +54,12 @@ Set `TELA_PHP_VERSIONS` to install a different set.
 | OpenLiteSpeed + LSPHP 8.1–8.4 | Web server and PHP |
 | Certbot | Free Let's Encrypt certificates, renewed automatically |
 | MariaDB | Databases (local connections only) |
+| phpMyAdmin | Database management, single sign-on from the panel, port 8091 |
 | Tela panel | Web interface, `tela-panel` service, port 8090 |
 | Tela agent | Privileged helper, `tela-agent` service, Unix socket only |
 
 Coming in later milestones: PowerDNS, Postfix, Dovecot, Rspamd, SnappyMail,
-Pure-FTPd, phpMyAdmin, restic, nftables and Fail2ban.
+Pure-FTPd, restic, nftables and Fail2ban.
 
 ## Websites
 
@@ -83,6 +84,22 @@ fails to start after a change, Tela restores the previous configuration.
 Run the install command again. It pulls the latest code into `/opt/tela`,
 re-applies each step and restarts the services. Your sites, databases,
 accounts, configuration and credentials are left alone.
+
+## Databases
+
+Add a database under **Databases** and pick the website it belongs to. Its name
+is prefixed with the website's system user (`shop_wordpress`), and a MariaDB user
+with the same name gets full rights on that database only. The password is shown
+once; Tela doesn't store it, but you can set a new one at any time. Deleting a
+website also deletes its databases.
+
+**phpMyAdmin** opens from the database list without asking for a password.
+Behind the button, Tela creates a temporary MariaDB user that can only see that
+website's databases, and hands its credentials to phpMyAdmin through a link
+that works once, within a minute. Temporary users are removed after 12 hours.
+phpMyAdmin can't be signed into any other way. It runs on port 8091 (set
+`TELA_PMA_PORT` when installing to change it), uses the panel's certificate and
+runs PHP as its own `tela-pma` user.
 
 ## The `tela` command
 
@@ -171,7 +188,7 @@ reload.
 
 1. ~~Installer, login, server dashboard~~
 2. ~~Websites: virtual hosts, PHP versions, Let's Encrypt SSL~~
-3. Databases: MariaDB databases and users, phpMyAdmin with single sign-on
+3. ~~Databases: MariaDB databases and users, phpMyAdmin with single sign-on~~
 4. DNS: PowerDNS, automatic zones
 5. Email: Postfix, Dovecot, Rspamd, DKIM/SPF/DMARC, webmail
 6. Backups: restic to S3, Backblaze B2 or SFTP, scheduled, with restore

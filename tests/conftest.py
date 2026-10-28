@@ -19,7 +19,7 @@ from tela.db import connect, migrate
 from tela_agent import settings, sysops
 from tela_agent.server import AgentServer
 
-from .fakes import FakeSystem
+from .fakes import FakeMariaDB, FakeSystem
 
 ADMIN_PASSWORD = "correct-horse-battery"
 
@@ -123,6 +123,9 @@ def host(tmp_path, monkeypatch):
         "TELA_SITES_ROOT": tmp_path / "home",
         "TELA_STATE_DIR": tmp_path / "state",
         "TELA_LETSENCRYPT_DIR": tmp_path / "letsencrypt",
+        "TELA_CONFIG": tmp_path / "no-tela.conf",
+        "TELA_PMA_ROOT": tmp_path / "phpmyadmin",
+        "TELA_PMA_TOKENS": tmp_path / "pma-tokens",
     }
     for key, value in env.items():
         monkeypatch.setenv(key, str(value))
@@ -130,4 +133,9 @@ def host(tmp_path, monkeypatch):
     fake.letsencrypt = tmp_path / "letsencrypt"
     fake.sites_root = tmp_path / "home"
     monkeypatch.setattr(sysops, "system", fake)
+    db = FakeMariaDB()
+    fake.mariadb = db
+    from tela_agent.actions import databases
+
+    monkeypatch.setattr(databases, "server", lambda paths: db)
     return fake, settings.load()
