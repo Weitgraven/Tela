@@ -137,8 +137,9 @@ def test_issue_ssl_and_force_https(host):
     fake.dns = {
         "example.com": {"203.0.113.5"},
         "www.example.com": {"203.0.113.5"},
-        "shop.example.com": {"198.51.100.1"},  # points elsewhere: skipped
+        "shop.example.com": {"198.51.100.1"},
     }
+    fake.elsewhere = {"shop.example.com"}  # resolves, but to another server: skipped
     site = websites.issue_ssl({"domain": "example.com"})
     assert site["ssl_names"] == ["example.com", "www.example.com"]
     assert site["skipped_names"] == ["shop.example.com"]
@@ -157,6 +158,36 @@ def test_issue_ssl_and_force_https(host):
 def test_issue_ssl_requires_dns(host):
     create()
     with pytest.raises(ActionError, match="does not resolve"):
+        websites.issue_ssl({"domain": "example.com"})
+
+
+def test_issue_ssl_explains_cloudflare(host):
+    fake, paths = host
+    create("cvgalerij.nl")
+    fake.dns = {"cvgalerij.nl": {"2606:4700:3033::6815:116f"}}
+    fake.elsewhere = {"cvgalerij.nl"}
+    with pytest.raises(ActionError, match="Cloudflare"):
+        websites.issue_ssl({"domain": "cvgalerij.nl"})
+    assert fake.issued == []  # Let's Encrypt is never asked
+    challenge = paths.sites_root / "cvgalerij.nl" / ".acme" / ".well-known" / "acme-challenge"
+    assert list(challenge.iterdir()) == []  # test file cleaned up
+
+
+def test_issue_ssl_wrong_server(host):
+    fake, _ = host
+    create()
+    fake.dns = {"example.com": {"198.51.100.7"}}
+    fake.elsewhere = {"example.com"}
+    with pytest.raises(ActionError, match="A \\(and AAAA\\) record"):
+        websites.issue_ssl({"domain": "example.com"})
+
+
+def test_issue_ssl_local_web_server_problem(host):
+    fake, _ = host
+    create()
+    fake.dns = {"example.com": {"203.0.113.5"}}
+    fake.local_broken = True
+    with pytest.raises(ActionError, match="on this machine"):
         websites.issue_ssl({"domain": "example.com"})
 
 

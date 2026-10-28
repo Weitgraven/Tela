@@ -128,5 +128,6 @@ def host(tmp_path, monkeypatch):
         monkeypatch.setenv(key, str(value))
     fake = FakeSystem()
     fake.letsencrypt = tmp_path / "letsencrypt"
+    fake.sites_root = tmp_path / "home"
     monkeypatch.setattr(sysops, "system", fake)
     return fake, settings.load()

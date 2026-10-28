@@ -14,6 +14,8 @@ import shutil
 import socket
 import subprocess
 import time
+import urllib.error
+import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -96,6 +98,26 @@ class System:
             return {info[4][0] for info in socket.getaddrinfo(name, None)}
         except OSError:
             return set()
+
+    def http_fetch(self, url: str, host: str | None = None, timeout: float = 10) -> tuple[int, str]:
+        """GET a URL the way Let's Encrypt does (following redirects).
+
+        Returns (status, body); status 0 means the server couldn't be reached.
+        With `host`, the request is sent to the URL's address with that Host header.
+        """
+        headers = {"User-Agent": "Tela challenge self-check"}
+        if host:
+            headers["Host"] = host
+        request = urllib.request.Request(url, headers=headers)  # noqa: S310 (http only)
+        # Never go through a proxy: the point is to see what the world sees directly.
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        try:
+            with opener.open(request, timeout=timeout) as response:
+                return response.status, response.read(4096).decode("utf-8", "replace")
+        except urllib.error.HTTPError as exc:
+            return exc.code, ""
+        except (urllib.error.URLError, OSError, ValueError):
+            return 0, ""
 
     def certbot_issue(
         self, cert_name: str, names: list[str], webroot: Path, email: str | None

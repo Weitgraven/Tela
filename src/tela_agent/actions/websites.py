@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import contextlib
+import ipaddress
 import json
 import os
 import re
+import secrets
 import threading
 import time
 from pathlib import Path
@@ -157,6 +159,75 @@ def _live_ssl(_paths: settings.Paths, site: Site) -> dict[str, Any]:
     return data
 
 
+# Cloudflare's published ranges; a proxied ("orange cloud") record resolves here.
+CLOUDFLARE_NETS = [
+    ipaddress.ip_network(n)
+    for n in (
+        "173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22",
+        "141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20",
+        "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13",
+        "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22", "2400:cb00::/32",
+        "2606:4700::/32", "2803:f800::/32", "2405:b500::/32", "2405:8100::/32",
+        "2a06:98c0::/29", "2c0f:f248::/32",
+    )
+]  # fmt: skip
+
+
+def _behind_cloudflare(ips: set[str]) -> bool:
+    for ip in ips:
+        with contextlib.suppress(ValueError):
+            addr = ipaddress.ip_address(ip)
+            if any(addr in net for net in CLOUDFLARE_NETS):
+                return True
+    return False
+
+
+def _reachable_names(site: Site, candidates: list[str]) -> list[str]:
+    """Check, before asking Let's Encrypt, that each name really reaches this site.
+
+    Writes a test file where certbot will put its challenge and fetches it, first
+    from the web server directly, then through each name's public DNS. Returns
+    the names that work; raises if the main domain doesn't.
+    """
+    challenge_dir = site.acme_dir / ".well-known" / "acme-challenge"
+    token = "tela-check-" + secrets.token_urlsafe(16)
+    probe = challenge_dir / token
+    probe.write_text(token)
+    os.chmod(probe, 0o644)
+    path = f"/.well-known/acme-challenge/{token}"
+    try:
+        status, body = sysops.system.http_fetch(f"http://127.0.0.1{path}", host=site.domain)
+        if body.strip() != token:
+            raise ActionError(
+                f"the web server on this machine doesn't serve {site.domain}'s validation "
+                f"file (HTTP {status or 'no response'}). Check that the web server is running."
+            )
+        reachable = []
+        for name in candidates:
+            status, body = sysops.system.http_fetch(f"http://{name}{path}")
+            if body.strip() == token:
+                reachable.append(name)
+            elif name == site.domain:
+                raise ActionError(_unreachable_message(name, status))
+        return reachable
+    finally:
+        probe.unlink(missing_ok=True)
+
+
+def _unreachable_message(name: str, status: int) -> str:
+    got = f"got HTTP {status}" if status else "no response"
+    message = f"http://{name} doesn't reach this server ({got} for a test file)."
+    if _behind_cloudflare(sysops.system.resolve(name)):
+        message += (
+            " The domain is behind Cloudflare's proxy. Either make sure its DNS record in "
+            "Cloudflare points to this server's IP address, or switch the record to "
+            "'DNS only' (grey cloud) while the certificate is issued."
+        )
+    else:
+        message += " Point the domain's A (and AAAA) record at this server's IP address."
+    return message
+
+
 # ---------------------------------------------------------------------------
 # Actions
 # ---------------------------------------------------------------------------
@@ -283,19 +354,14 @@ def issue_ssl(params: dict[str, Any]) -> dict[str, Any]:
         if site is None:
             raise ActionError(f"no website {domain}")
 
-        primary_ips = sysops.system.resolve(domain)
-        if not primary_ips:
+        if not sysops.system.resolve(domain):
             raise ActionError(
                 f"{domain} does not resolve yet. Point its DNS A record at this server first."
             )
-        # Include aliases that point to the same place as the domain itself;
-        # wildcards need DNS validation and are left out.
-        names = [domain] + [
-            a
-            for a in site.aliases
-            if not a.startswith("*.") and sysops.system.resolve(a) & primary_ips
-        ]
         _prepare_dirs(paths, site)
+        # Wildcards need DNS validation and are left out.
+        candidates = [domain] + [a for a in site.aliases if not a.startswith("*.")]
+        names = _reachable_names(site, candidates)
         sysops.system.certbot_issue(domain, names, site.acme_dir, email)
 
         live = paths.letsencrypt / "live" / domain

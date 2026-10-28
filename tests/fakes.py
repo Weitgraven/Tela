@@ -19,6 +19,9 @@ class FakeSystem(System):
         self.issued: list[tuple[str, list[str], Path]] = []
         self.deleted_certs: list[str] = []
         self.letsencrypt: Path | None = None
+        self.sites_root: Path | None = None
+        self.elsewhere: set[str] = set()
+        self.local_broken = False
 
     def user_exists(self, name: str) -> bool:
         return name in self.users
@@ -46,6 +49,25 @@ class FakeSystem(System):
 
     def resolve(self, name: str) -> set[str]:
         return self.dns.get(name, set())
+
+    def http_fetch(self, url: str, host: str | None = None, timeout: float = 10):
+        """Serve challenge files for names that 'point here' (are in self.dns and not
+        listed in self.elsewhere), like the real server would."""
+        from urllib.parse import urlparse
+
+        parsed = urlparse(url)
+        name = host or parsed.hostname
+        if host is None and (name not in self.dns or name in self.elsewhere):
+            return 404, ""
+        if self.local_broken:
+            return 404, ""
+        token = parsed.path.rsplit("/", 1)[-1]
+        assert self.sites_root is not None
+        for site_dir in self.sites_root.iterdir():
+            f = site_dir / ".acme" / ".well-known" / "acme-challenge" / token
+            if f.exists():
+                return 200, f.read_text()
+        return 404, ""
 
     def certbot_issue(self, cert_name, names, webroot, email) -> None:
         self.issued.append((cert_name, list(names), webroot))
