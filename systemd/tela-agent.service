@@ -1,0 +1,21 @@
+[Unit]
+Description=Tela agent (privileged helper for the Tela panel)
+After=network.target
+
+[Service]
+Type=simple
+Environment=PYTHONPATH=@TELA_DIR@/src
+Environment=TELA_PANEL_USER=tela
+Environment=TELA_AGENT_SOCKET=/run/tela/agent.sock
+ExecStart=@TELA_DIR@/venv/bin/python -m tela_agent
+Restart=on-failure
+RestartSec=2
+# Keep /run/tela across restarts: the panel has it bind-mounted.
+RuntimeDirectory=tela
+RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=yes
+PrivateTmp=yes
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: pytest -q
+
+  installer:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: shellcheck -x install.sh install/lib.sh install/steps/*.sh
+      - name: Verify systemd units
+        run: |
+          mkdir -p /tmp/units
+          for u in systemd/*.service; do sed "s#@TELA_DIR@#/opt/tela#g" "$u" > "/tmp/units/$(basename "$u")"; done
+          systemd-analyze verify /tmp/units/*.service || true

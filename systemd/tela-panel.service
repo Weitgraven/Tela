@@ -1,0 +1,43 @@
+[Unit]
+Description=Tela hosting panel
+After=network.target tela-agent.service
+Wants=tela-agent.service
+
+[Service]
+Type=simple
+User=tela
+Group=tela
+Environment=PYTHONPATH=@TELA_DIR@/src
+Environment=TELA_CONFIG=/etc/tela/tela.conf
+ExecStart=@TELA_DIR@/venv/bin/python -m tela
+Restart=always
+RestartSec=2
+UMask=0027
+
+# The panel is unprivileged and sandboxed. Anything that needs root goes
+# through tela-agent's socket.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ReadWritePaths=/var/lib/tela -/run/tela
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+
+[Install]
+WantedBy=multi-user.target
