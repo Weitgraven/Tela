@@ -74,16 +74,31 @@ class System:
         return user, group
 
     def reload_web_server(self, ols_root: Path) -> None:
-        """Gracefully restart OpenLiteSpeed and make sure it is still running."""
-        ctl = ols_root / "bin" / "lswsctrl"
-        result = _run([str(ctl), "restart"], timeout=60)
+        """Gracefully restart OpenLiteSpeed and check the new configuration was loaded.
+
+        Goes through systemd rather than running lswsctrl directly: lswsctrl looks
+        for the server's PID file in /tmp, which this service can't see
+        (PrivateTmp), so it would start a second server that fails to bind.
+
+        A graceful restart replaces the server process, so the PID changes once
+        the new configuration is live. If it doesn't change, the new process
+        failed to start (the old one keeps serving the old configuration).
+        """
+        before = _ols_pid()
+        result = _run(["systemctl", "reload-or-restart", "lsws"], timeout=90)
         if result.returncode != 0:
             raise ActionError(f"web server restart failed: {result.stderr.strip()}")
-        for _ in range(10):
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline:
             time.sleep(0.5)
-            if _run(["systemctl", "is-active", "--quiet", "lsws"]).returncode == 0:
+            pid = _ols_pid()
+            if pid and pid != before and _pid_alive(pid):
                 return
-        raise ActionError("web server is not running after the configuration change")
+        detail = _ols_errors(ols_root)
+        raise ActionError(
+            "the web server did not load the new configuration"
+            + (f": {detail}" if detail else "; see /usr/local/lsws/logs/error.log")
+        )
 
     def php_versions(self, ols_root: Path) -> list[str]:
         versions = []
@@ -147,6 +162,40 @@ class System:
         except ValueError:
             return None
         return int(when.timestamp())
+
+
+OLS_PID_FILES = (Path("/run/openlitespeed.pid"), Path("/var/run/openlitespeed.pid"))
+
+
+def _ols_pid() -> int | None:
+    for pid_file in OLS_PID_FILES:
+        with contextlib.suppress(OSError, ValueError):
+            return int(pid_file.read_text().strip())
+    return None
+
+
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _ols_errors(ols_root: Path, limit: int = 3) -> str:
+    """The last few [ERROR] lines of the web server's error log, without timestamps."""
+    log = ols_root / "logs" / "error.log"
+    try:
+        with open(log, "rb") as fh:
+            fh.seek(0, os.SEEK_END)
+            fh.seek(max(fh.tell() - 16384, 0))
+            lines = fh.read().decode("utf-8", "replace").splitlines()
+    except OSError:
+        return ""
+    errors = [line.split("] ", 2)[-1] for line in lines if "[ERROR]" in line]
+    return "; ".join(errors[-limit:])
 
 
 def _certbot_error(output: str) -> str:

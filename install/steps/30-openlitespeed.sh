@@ -48,6 +48,7 @@ admin_conf="$OLS_ROOT/admin/conf/admin_config.conf"
 # rather than "was the package just installed", so a re-run after a failed
 # install still applies it.
 ols_marker="$OLS_ROOT/conf/.tela-initialized"
+ols_needs_full_restart=0
 if [[ ! -f "$ols_marker" ]]; then
   # The OpenLiteSpeed WebAdmin console is only reachable from the server itself
   # (use an SSH tunnel). Tela manages the web server; you shouldn't need it.
@@ -61,6 +62,9 @@ if [[ ! -f "$ols_marker" ]]; then
   save_credential "OpenLiteSpeed WebAdmin" "admin / $ols_pass (https://127.0.0.1:7080)"
   ok "WebAdmin console limited to localhost"
   touch "$ols_marker"
+  # A graceful restart can't move a listener from *:7080 to 127.0.0.1:7080 (the
+  # old process still holds the port), so this one time do a full stop and start.
+  ols_needs_full_restart=1
 fi
 
 # Point the server-wide PHP handler at the default version.
@@ -70,5 +74,9 @@ if [[ -x "$default_php" ]]; then
 fi
 
 enable_service lsws
-run systemctl restart lsws
+if ((ols_needs_full_restart)); then
+  ols_full_restart
+else
+  ols_reload
+fi
 ok "Web server running"

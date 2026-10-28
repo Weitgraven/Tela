@@ -120,6 +120,47 @@ enable_service() {
   run systemctl enable "$real"
 }
 
+# OpenLiteSpeed: graceful restart (or start, if it isn't running), then wait until
+# the new server process is up.
+ols_reload() {
+  local before after
+  before="$(cat /run/openlitespeed.pid 2>/dev/null || true)"
+  run systemctl reload-or-restart lsws
+  for _ in $(seq 1 30); do
+    after="$(cat /run/openlitespeed.pid 2>/dev/null || true)"
+    if [[ -n "$after" && "$after" != "$before" ]] && kill -0 "$after" 2>/dev/null; then
+      return 0
+    fi
+    sleep 1
+  done
+  grep '\[ERROR\]' "$OLS_ROOT/logs/error.log" 2>/dev/null | tail -n 5 >>"$LOG_FILE" || true
+  tail -n 5 "$LOG_FILE" | sed 's/^/    | /' >&2
+  die "the web server did not restart with the new configuration"
+}
+
+# OpenLiteSpeed: full stop and start, for changes a graceful restart can't apply.
+# Its stop is "delayed" (waits for connections), so wait for the processes to go.
+ols_full_restart() {
+  run systemctl stop lsws
+  for _ in $(seq 1 30); do
+    pgrep -x litespeed >/dev/null 2>&1 || pgrep -x openlitespeed >/dev/null 2>&1 || break
+    sleep 1
+  done
+  if pgrep -x litespeed >/dev/null 2>&1 || pgrep -x openlitespeed >/dev/null 2>&1; then
+    pkill -x litespeed || true
+    pkill -x openlitespeed || true
+    sleep 2
+  fi
+  run systemctl start lsws
+  for _ in $(seq 1 30); do
+    if [[ -s /run/openlitespeed.pid ]] && kill -0 "$(cat /run/openlitespeed.pid)" 2>/dev/null; then
+      return 0
+    fi
+    sleep 1
+  done
+  die "the web server did not start; check $OLS_ROOT/logs/error.log"
+}
+
 public_ip() {
   local ip=""
   if command -v ip >/dev/null 2>&1; then

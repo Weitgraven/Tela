@@ -12,7 +12,7 @@ install -d -m 0755 "$hook_dir"
 write_if_changed "$hook_dir/tela-reload-lsws.sh" <<EOF || true
 #!/bin/sh
 # Installed by Tela: load renewed certificates.
-exec $OLS_ROOT/bin/lswsctrl restart
+exec systemctl reload-or-restart lsws
 EOF
 chmod 0755 "$hook_dir/tela-reload-lsws.sh"
 
@@ -31,5 +31,5 @@ install -d -m 0700 -o root -g root "$TELA_ETC/sites"
 # Hand the web server config over to Tela: replaces the demo listener and
 # virtual host with Tela's, and rebuilds the config of existing sites.
 run env PYTHONPATH="$TELA_DIR/src" "$TELA_VENV/bin/python" -m tela_agent.setup
-run systemctl restart lsws
+ols_reload
 ok "Web server now serves Tela websites on ports 80 and 443"
