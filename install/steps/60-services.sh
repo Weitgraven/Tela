@@ -2,7 +2,7 @@
 step "Starting Tela services"
 
 changed=0
-for unit in tela-agent.service tela-panel.service; do
+for unit in tela-agent.service tela-panel.service tela-backup.service tela-backup.timer; do
   if sed "s#@TELA_DIR@#$TELA_DIR#g" "$TELA_DIR/systemd/$unit" \
     | write_if_changed "/etc/systemd/system/$unit"; then
     changed=1
@@ -14,6 +14,8 @@ fi
 
 enable_service tela-agent
 enable_service tela-panel
+enable_service tela-backup.timer
+run systemctl start tela-backup.timer
 # Restart so an upgrade picks up new code.
 run systemctl restart tela-agent
 run systemctl restart tela-panel

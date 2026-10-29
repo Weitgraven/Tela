@@ -28,6 +28,8 @@ class Paths:
     mailhost_root: Path = Path("/var/lib/tela-mailhost")
     webmail_root: Path = Path("/opt/tela-webmail")
     webmail_user: str = "tela-webmail"
+    backup_staging: Path = Path("/var/lib/tela-backup")
+    panel_data: Path = Path("/var/lib/tela")
 
     @property
     def httpd_config(self) -> Path:
@@ -63,6 +65,14 @@ class Paths:
         return self.state_dir.parent / "mail"
 
     @property
+    def backup_dir(self) -> Path:
+        return self.state_dir.parent / "backups"
+
+    @property
+    def panel_db(self) -> Path:
+        return self.panel_data / "tela.sqlite"
+
+    @property
     def webmail_installed(self) -> bool:
         return (self.webmail_root / "index.php").exists()
 
@@ -86,6 +96,7 @@ def load() -> Paths:
     panel = conf.get("panel", {})
     pma = conf.get("phpmyadmin", {})
     defaults = conf.get("defaults", {})
+    panel_paths = conf.get("paths", {})
     base = Paths(
         ols_root=Path(env("TELA_OLS_ROOT", "/usr/local/lsws")),
         sites_root=Path(env("TELA_SITES_ROOT", "/home")),
@@ -108,4 +119,6 @@ def load() -> Paths:
         pdns_dir=Path(env("TELA_PDNS_DIR", str(base.pdns_dir))),
         mailhost_root=Path(env("TELA_MAILHOST_ROOT", str(base.mailhost_root))),
         webmail_root=Path(env("TELA_WEBMAIL_ROOT", str(base.webmail_root))),
+        backup_staging=Path(env("TELA_BACKUP_STAGING", str(base.backup_staging))),
+        panel_data=Path(env("TELA_PANEL_DATA", panel_paths.get("data_dir", str(base.panel_data)))),
     )

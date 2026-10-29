@@ -4,9 +4,9 @@ Tela is a free, open-source web hosting control panel: websites, email, DNS,
 databases and backups on your own server, managed from one panel. Every
 feature is free. There are no paid add-ons and no premium tier.
 
-> **Status: early development.** Milestones 1–5 (installer, login,
-> dashboard, websites with SSL, databases with phpMyAdmin, DNS, email) are
-> done. Hosting features are being added milestone by milestone, see the
+> **Status: early development.** Milestones 1–6 (installer, login,
+> dashboard, websites with SSL, databases with phpMyAdmin, DNS, email,
+> backups) are done. Hosting features are being added milestone by milestone, see the
 > [roadmap](#roadmap). Don't run it on a
 > production server yet.
 
@@ -61,12 +61,13 @@ Set `TELA_PHP_VERSIONS` to install a different set.
 | Dovecot | Mailboxes over IMAP (993, 143) and POP3 (995, 110) |
 | Rspamd + Redis | Spam filtering and DKIM signing |
 | Roundcube | Webmail on the mail server's host name |
+| restic | Encrypted, deduplicated backups, checked every 15 minutes by `tela-backup.timer` |
 | Tela panel | Web interface, `tela-panel` service, port 8090 |
 | Tela agent | Privileged helper, `tela-agent` service, Unix socket only |
 
 With `--with-dns-server`: PowerDNS as an authoritative DNS server.
 
-Coming in later milestones: Pure-FTPd, restic, nftables and Fail2ban.
+Coming in later milestones: Pure-FTPd, nftables and Fail2ban.
 
 ## Websites
 
@@ -158,6 +159,46 @@ Things to check, especially on a home connection:
 - Forward ports 25, 465, 587 and 993 (and 995, 143, 110 if you use POP3 or plain
   IMAP) to the server.
 
+## Backups
+
+Under **Backups → Add destination**, choose where backups go:
+
+- **S3-compatible storage**: Backblaze B2 (S3 endpoint), Wasabi, Cloudflare R2,
+  Amazon S3, MinIO, …
+- **Backblaze B2** through its own API
+- **SFTP**: any server or NAS you can reach over SSH. Tela shows an SSH key to
+  add to that user's `~/.ssh/authorized_keys`.
+- **A local folder**, e.g. on a second disk. This doesn't protect against
+  losing the server.
+
+Each destination has its own schedule (daily, weekly or by hand), retention
+(how many daily, weekly and monthly backups to keep) and selection: website
+files, databases, email and the server configuration. Every run makes one
+snapshot per website (its files without `logs/`, a dump of each of its
+databases, and its mail) plus one of the server configuration (`/etc/tela`,
+certificates, mail and DNS settings, the panel database).
+
+Backups are encrypted with a password Tela generates and shows once; **Show
+password** shows it again. Keep it somewhere safe: if the server is lost, it's
+the only way to read the backups. To use the backups from a new server, add the
+same destination there and enter the password under "Connect to an existing
+backup repository".
+
+**Restore a website** lists a site's backups from every destination and
+restores its files (all, or one file or folder), its databases and its mail.
+Restoring files replaces the site's files with the backed-up ones; restoring
+mail brings back deleted messages and keeps newer ones. A site's owner can
+back up and restore their own sites. Failed backups can send an email.
+
+The server configuration snapshot isn't restored from the panel. To get files
+out of it by hand:
+
+```bash
+export RESTIC_REPOSITORY='<location shown in the panel>' RESTIC_PASSWORD='<password>'
+restic snapshots --tag server
+restic restore latest --tag server --target /root/restore
+```
+
 ## The `tela` command
 
 ```bash
@@ -248,7 +289,7 @@ reload.
 3. ~~Databases: MariaDB databases and users, phpMyAdmin with single sign-on~~
 4. ~~DNS: Cloudflare and PowerDNS, automatic records for websites~~
 5. ~~Email: Postfix, Dovecot, Rspamd, DKIM/SPF/DMARC, webmail~~
-6. Backups: restic to S3, Backblaze B2 or SFTP, scheduled, with restore
+6. ~~Backups: restic to S3, Backblaze B2 or SFTP, scheduled, with restore~~
 7. WordPress: install, staging, cloning, updates
 8. Users: client accounts, hosting packages, resellers
 9. Firewall and Fail2ban management, two-factor authentication

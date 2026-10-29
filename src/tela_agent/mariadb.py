@@ -101,6 +101,16 @@ class MariaDB:
             ]
         )
 
+    def recreate_database(self, name: str) -> None:
+        """Empty a database for a restore. Its user and grants stay."""
+        db = _ident(name)
+        self._execute(
+            [
+                (f"DROP DATABASE IF EXISTS {db}", ()),
+                (f"CREATE DATABASE {db} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci", ()),
+            ]
+        )
+
     def set_password(self, user: str, password: str) -> None:
         _ident(user)
         self._execute([("ALTER USER %s@'localhost' IDENTIFIED BY %s", (user, password))])

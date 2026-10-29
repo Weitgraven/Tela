@@ -1,3 +1,3 @@
 """Tela - a free, open-source web hosting control panel."""
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"

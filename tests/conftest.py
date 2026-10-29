@@ -19,7 +19,14 @@ from tela.db import connect, migrate
 from tela_agent import settings, sysops
 from tela_agent.server import AgentServer
 
-from .fakes import FakeCloudflare, FakeMailSystem, FakeMariaDB, FakePowerDNS, FakeSystem
+from .fakes import (
+    FakeBackupHost,
+    FakeCloudflare,
+    FakeMailSystem,
+    FakeMariaDB,
+    FakePowerDNS,
+    FakeSystem,
+)
 
 ADMIN_PASSWORD = "correct-horse-battery"
 
@@ -129,6 +136,8 @@ def host(tmp_path, monkeypatch):
         "TELA_PDNS_DIR": tmp_path / "powerdns",
         "TELA_MAILHOST_ROOT": tmp_path / "mailhost",
         "TELA_WEBMAIL_ROOT": tmp_path / "webmail",
+        "TELA_BACKUP_STAGING": tmp_path / "backup-staging",
+        "TELA_PANEL_DATA": tmp_path / "panel-data",
     }
     for key, value in env.items():
         monkeypatch.setenv(key, str(value))
@@ -153,4 +162,15 @@ def host(tmp_path, monkeypatch):
 
     fake.mail = FakeMailSystem(tmp_path / "mail")
     monkeypatch.setattr(mail, "system", lambda: fake.mail)
+
+    from tela_agent import backups
+    from tela_agent.actions import backups as backup_actions
+
+    fake.backup_host = FakeBackupHost(db)
+    monkeypatch.setattr(backups, "host", lambda: fake.backup_host)
+    monkeypatch.setattr(backups, "mariadb_server", lambda paths: db)
+    # Jobs run right away instead of in a separate systemd unit.
+    monkeypatch.setattr(
+        backup_actions, "launch", lambda paths, job_id: backups.execute(paths, job_id)
+    )
     return fake, settings.load()

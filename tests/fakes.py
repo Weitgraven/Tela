@@ -90,6 +90,7 @@ class FakeMariaDB:
     def __init__(self) -> None:
         self.databases: dict[str, int] = {}
         self.users: dict[str, tuple[str, list[str]]] = {}
+        self.contents: dict[str, str] = {}
 
     def database_exists(self, name: str) -> bool:
         return name in self.databases
@@ -104,6 +105,10 @@ class FakeMariaDB:
     def drop_database(self, name: str) -> None:
         self.databases.pop(name, None)
         self.users.pop(name, None)
+
+    def recreate_database(self, name: str) -> None:
+        self.databases[name] = 0
+        self.contents[name] = ""
 
     def set_password(self, user: str, password: str) -> None:
         self.users[user] = (password, self.users[user][1])
@@ -253,3 +258,30 @@ class FakeMailSystem:
                 super().use_certificate(cert, key)
 
         return _Fake()
+
+
+class FakeBackupHost:
+    """Database dumps and ownership changes without MariaDB or root; real rsync."""
+
+    def __init__(self, db: FakeMariaDB) -> None:
+        from tela_agent.backups import Host
+
+        self.db = db
+        self.mails: list[tuple[str, str, str]] = []
+        self.chowned: list[tuple[str, str]] = []
+        self._real = Host()
+
+    def dump_database(self, name, target):
+        target.write_text(f"-- dump of {name}\n{self.db.contents.get(name, '')}")
+
+    def import_database(self, name, source):
+        self.db.contents[name] = source.read_text().split("\n", 1)[1]
+
+    def sync(self, source, target, delete, excludes=()):
+        self._real.sync(source, target, delete, excludes)
+
+    def chown_tree(self, path, user, group):
+        self.chowned.append((str(path), user))
+
+    def send_mail(self, to, subject, body):
+        self.mails.append((to, subject, body))

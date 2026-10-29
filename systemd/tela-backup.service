@@ -1,0 +1,12 @@
+[Unit]
+Description=Tela scheduled backups
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=PYTHONPATH=@TELA_DIR@/src
+ExecStart=@TELA_DIR@/venv/bin/python -m tela_agent.backuprun scheduled
+Nice=10
+IOSchedulingClass=idle
+UMask=0077
