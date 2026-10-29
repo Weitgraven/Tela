@@ -63,9 +63,10 @@ def sql(db: str, query: str) -> str:
 
 
 def test_install_staging_push_clone(live):
-    _fake, _real, _ = live
+    fake, _real, _ = live
     os.umask(0o077)  # like a job started by the agent
     websites.create_site({"domain": "wplive.nl", "php_version": "8.3"})
+    reloads = fake.reloads
     job = wpa.install(
         {
             "domain": "wplive.nl",
@@ -88,6 +89,7 @@ def test_install_staging_push_clone(live):
     assert css.stat().st_mode & 0o777 == 0o644
     assert (wp.docroot / ".htaccess").stat().st_mode & 0o777 == 0o644
     assert wp.config.stat().st_mode & 0o777 == 0o600
+    assert fake.reloads > reloads  # so the web server picks up .htaccess
     assert wp.option("permalink_structure") == "/%postname%/"
     assert not (site.home / "public_html" / "index.html").exists()
     assert "thomas" in wp.run("user", "list", "--field=user_login")

@@ -112,6 +112,14 @@ def _site_lock(paths: settings.Paths, *domains: str):
             fh.close()
 
 
+def _load_htaccess(paths: settings.Paths) -> None:
+    """OpenLiteSpeed reads a site's .htaccess once and keeps it: without a reload
+    a new WordPress install has no rewrite rules, so /wp-json/ (the block
+    editor) and pretty links answer 404."""
+    with contextlib.suppress(ActionError):
+        sysops.system.reload_web_server(paths.ols_root)
+
+
 def _url(site: Site) -> str:
     return ("https://" if site.ssl_cert else "http://") + site.domain
 
@@ -353,6 +361,7 @@ def run_install(paths: settings.Paths, job: dict[str, Any]) -> None:
         websites._prepare_dirs(paths, site)
         save_meta(paths, site.domain, installed_by_tela=int(time.time()))
         job["results"].append({"name": "WordPress", "ok": True, "message": wp.version() or ""})
+        _load_htaccess(paths)
         job["status"] = "ok"
         job["message"] = f"installed; sign in at {_url(site)}/wp-admin/"
 
@@ -548,6 +557,7 @@ def run_clone(paths: settings.Paths, job: dict[str, Any]) -> None:
                 dst.run("rewrite", "flush")
         finally:
             shutil.rmtree(work, ignore_errors=True)
+    _load_htaccess(paths)
     job["status"] = "ok"
     job["message"] = f"copied to {_url(target)}"
 
@@ -595,6 +605,7 @@ def run_push(paths: settings.Paths, job: dict[str, Any]) -> None:
                 dst.run("rewrite", "flush")
         finally:
             shutil.rmtree(work, ignore_errors=True)
+    _load_htaccess(paths)
     job["status"] = "ok"
     job["message"] = f"{staging.domain} is now live on {live.domain}"
 
