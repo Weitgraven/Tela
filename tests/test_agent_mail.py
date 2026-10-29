@@ -11,7 +11,6 @@ from tela_agent.sha512crypt import verify
 @pytest.fixture
 def mailhost(host):
     fake, paths = host
-    paths.panel_cert.parent  # noqa: B018
     mail.update_settings({"hostname": "mail.example.com"})
     return fake, paths
 
@@ -171,9 +170,12 @@ def test_dovecot_conf_versions():
     )
 
 
-def test_setup_server(host):
+def test_setup_server(host, tmp_path):
+    import dataclasses
+
     fake, paths = host
-    paths.panel_cert.parent.mkdir(parents=True, exist_ok=True)
+    paths = dataclasses.replace(paths, panel_cert=tmp_path / "panel.crt",
+                                panel_key=tmp_path / "panel.key")  # fmt: skip
     message = mail.setup_server(paths)
     assert "Dovecot 2.4" in message
     assert "dovecot_config_version" in fake.mail.dovecot_conf.read_text()
