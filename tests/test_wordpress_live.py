@@ -64,6 +64,7 @@ def sql(db: str, query: str) -> str:
 
 def test_install_staging_push_clone(live):
     _fake, _real, _ = live
+    os.umask(0o077)  # like a job started by the agent
     websites.create_site({"domain": "wplive.nl", "php_version": "8.3"})
     job = wpa.install(
         {
@@ -81,6 +82,12 @@ def test_install_staging_push_clone(live):
     site = websites._load_site(paths, "wplive.nl")
     wp = wordpress.WP(paths, site)
     assert wp.installed() and wp.option("home") == "http://wplive.nl"
+    # The web server must be able to walk into wp-admin and read static files.
+    assert (wp.docroot / "wp-admin").stat().st_mode & 0o777 == 0o755
+    css = wp.docroot / "wp-includes" / "css" / "dashicons.min.css"
+    assert css.stat().st_mode & 0o777 == 0o644
+    assert (wp.docroot / ".htaccess").stat().st_mode & 0o777 == 0o644
+    assert wp.config.stat().st_mode & 0o777 == 0o600
     assert wp.option("permalink_structure") == "/%postname%/"
     assert not (site.home / "public_html" / "index.html").exists()
     assert "thomas" in wp.run("user", "list", "--field=user_login")

@@ -341,7 +341,10 @@ def run_install(paths: settings.Paths, job: dict[str, Any]) -> None:
             htaccess = wp.docroot / ".htaccess"
             if not htaccess.exists():
                 htaccess.write_text(HTACCESS)
+                os.chmod(htaccess, 0o644)  # the web server reads it
                 backups.host().chown_tree(htaccess, site.user, site.user)
+            # Only the site's own PHP needs the database password.
+            os.chmod(wp.config, 0o600)
         except ActionError:
             log("Install failed; removing the database again")
             with contextlib.suppress(ActionError):
@@ -531,6 +534,7 @@ def run_clone(paths: settings.Paths, job: dict[str, Any]) -> None:
             set_define(dst.config, "DB_NAME", db["name"])
             set_define(dst.config, "DB_USER", db["user"])
             set_define(dst.config, "DB_PASSWORD", db["password"])
+            os.chmod(dst.config, 0o600)
             job["results"].append({"name": "Database", "ok": True, "message": db["name"]})
             _replace_urls(dst, old_home, source.domain, log)
             if job["mode"] == "staging":

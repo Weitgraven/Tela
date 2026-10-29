@@ -107,8 +107,12 @@ class WP:
             "WP_CLI_DISABLE_AUTO_CHECK_UPDATE": "1",
         }
         try:
+            # The web server (not the site user) has to read static files and
+            # walk directories, so new files must not inherit a strict umask
+            # (backup jobs run with 077).
             result = subprocess.run(
                 cmd,
+                umask=0o022,
                 input=stdin,
                 capture_output=True,
                 text=True,
