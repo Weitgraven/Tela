@@ -19,7 +19,7 @@ _VERSION = re.compile(r"^\$wp_version\s*=\s*'([^']+)'", re.M)
 def user_command(user: str) -> list[str]:
     """Prefix that runs a command as the site's user (replaced in tests)."""
     if os.geteuid() == 0:
-        return ["runuser", "-u", user, "--"]
+        return ["/usr/sbin/runuser", "-u", user, "--"]
     return []
 
 
@@ -101,7 +101,7 @@ class WP:
         if not prefix and os.geteuid() == 0:
             cmd.append("--allow-root")  # only in tests: in production it runs as the site user
         env = {
-            "PATH": "/usr/local/bin:/usr/bin:/bin",
+            "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
             "HOME": str(self.site.home),
             "WP_CLI_CACHE_DIR": str(self.site.home / ".wp-cli" / "cache"),
             "WP_CLI_DISABLE_AUTO_CHECK_UPDATE": "1",

@@ -130,3 +130,12 @@ def test_install_job_without_wp_cli_fails_cleanly(sites, monkeypatch, tmp_path):
     # The database made for it is removed again, and the password isn't kept.
     assert websites._load_site(paths, "shop.nl").databases == []
     assert not list((paths.backup_dir / "jobs").glob("*.secret"))
+
+
+def test_runs_as_site_user_with_absolute_runuser(monkeypatch):
+    # The command is looked up in the PATH we pass, which is minimal: runuser
+    # must be given with its full path.
+    from tela_agent import wordpress
+
+    monkeypatch.setattr(wordpress.os, "geteuid", lambda: 0)
+    assert wordpress.user_command("shop") == ["/usr/sbin/runuser", "-u", "shop", "--"]
