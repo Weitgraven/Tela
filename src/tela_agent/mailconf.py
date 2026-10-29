@@ -267,12 +267,14 @@ def dkim_txt(public_key_b64: str) -> str:
 def recommended_records(domain: str, hostname: str, selector: str, public_key_b64: str,
                         ipv4: str = "", ipv6: str = "") -> list[dict[str, Any]]:  # fmt: skip
     """Records (Tela's record format, names relative to `domain`)."""
-    spf = "v=spf1 mx"
+    # The server's own addresses first: they match without further DNS lookups,
+    # so a missing or not-yet-visible mail host record can't break SPF.
+    spf = "v=spf1"
     if ipv4:
         spf += f" ip4:{ipv4}"
     if ipv6:
         spf += f" ip6:{ipv6}"
-    spf += " ~all"
+    spf += " mx ~all"
     return [
         {"name": "@", "type": "MX", "content": hostname, "priority": 10},
         {"name": "@", "type": "TXT", "content": spf},

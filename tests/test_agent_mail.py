@@ -151,7 +151,7 @@ def test_dns_records_added_to_zone(mailhost):
     ]  # fmt: skip
     records = dns.list_records({"zone": "example.com"})["records"]
     spf = next(r for r in records if r["content"].startswith("v=spf1"))
-    assert spf["content"] == "v=spf1 mx ip4:203.0.113.5 ~all"
+    assert spf["content"] == "v=spf1 ip4:203.0.113.5 mx ~all"
     assert any(r["name"] == "mail" and r["type"] == "A" for r in records)
     again = mail.domain_dns({"domain": "example.com"})
     assert again["added"] == [] and len(again["skipped"]) == 4
