@@ -101,7 +101,7 @@ export const EmailView = {
     const sites = ref([]);
     const error = ref("");
     const isAdmin = computed(() => session.user?.role === "admin");
-    const showServer = ref(false);
+    const showServer = ref(null);
     const adding = ref(false);
     const form = reactive({ domain: "", dns: true });
     const formError = ref("");
@@ -116,6 +116,8 @@ export const EmailView = {
         ]);
         status.value = st;
         domains.value = d.domains;
+        // Show the server settings until there's something else to look at.
+        if (showServer.value === null) showServer.value = !st.ssl_issued || !d.domains.length;
         sites.value = w.websites.map((s) => s.domain);
         error.value = "";
       } catch (err) {
@@ -161,7 +163,7 @@ export const EmailView = {
       <div class="actions" v-if="status && status.installed">
         <a v-if="status.webmail_installed && status.webmail_url" class="button button-quiet" :href="status.webmail_url" target="_blank" rel="noopener">Webmail</a>
         <button v-if="isAdmin" class="button button-quiet" type="button" @click="showServer = !showServer">{{ showServer ? "Hide mail server" : "Mail server" }}</button>
-        <button v-if="!adding && domains && domains.length" class="button" type="button" @click="openForm">Add domain</button>
+        <button v-if="!adding && domains && (isAdmin || available.length)" class="button" type="button" @click="openForm">Add domain</button>
       </div>
     </header>
 
@@ -174,7 +176,7 @@ export const EmailView = {
     </section>
 
     <template v-else>
-      <MailServer v-if="isAdmin && (showServer || (domains && !domains.length))" :status="status" @saved="load" />
+      <MailServer v-if="isAdmin && showServer" :status="status" @saved="load" />
 
       <form v-if="adding" class="panel form-panel" @submit.prevent="create">
         <h2>Add a mail domain</h2>
@@ -199,7 +201,7 @@ export const EmailView = {
 
       <section v-if="domains && !domains.length && !adding" class="panel empty">
         <h2>No mail domains yet</h2>
-        <p>Add a domain to create mailboxes like info@ and forwarders for it.</p>
+        <p>Mailboxes belong to a domain. Add the domain first (for example cvgalerij.nl), then create mailboxes like info@ and forwarders on its page.</p>
         <button v-if="isAdmin || available.length" class="button" type="button" @click="openForm">Add your first domain</button>
         <p v-else class="muted">Email can be added for the domains of your websites.</p>
       </section>
