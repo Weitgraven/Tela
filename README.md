@@ -4,9 +4,9 @@ Tela is a free, open-source web hosting control panel: websites, email, DNS,
 databases and backups on your own server, managed from one panel. Every
 feature is free. There are no paid add-ons and no premium tier.
 
-> **Status: early development.** Milestones 1–6 (installer, login,
+> **Status: early development.** Milestones 1–7 (installer, login,
 > dashboard, websites with SSL, databases with phpMyAdmin, DNS, email,
-> backups) are done. Hosting features are being added milestone by milestone, see the
+> backups, WordPress) are done. Hosting features are being added milestone by milestone, see the
 > [roadmap](#roadmap). Don't run it on a
 > production server yet.
 
@@ -61,6 +61,7 @@ Set `TELA_PHP_VERSIONS` to install a different set.
 | Dovecot | Mailboxes over IMAP (993, 143) and POP3 (995, 110) |
 | Rspamd + Redis | Spam filtering and DKIM signing |
 | Roundcube | Webmail on the mail server's host name |
+| WP-CLI | WordPress installs, updates, staging and cloning; also as `wp` |
 | restic | Encrypted, deduplicated backups, checked every 15 minutes by `tela-backup.timer` |
 | Tela panel | Web interface, `tela-panel` service, port 8090 |
 | Tela agent | Privileged helper, `tela-agent` service, Unix socket only |
@@ -199,6 +200,30 @@ restic snapshots --tag server
 restic restore latest --tag server --target /root/restore
 ```
 
+## WordPress
+
+The **WordPress** page lists every website and whether WordPress runs on it.
+
+- **Install WordPress** on an empty website: Tela creates a database, downloads
+  WordPress in the language you pick, and sets up the admin account with the
+  password shown in the form (Tela doesn't keep it). Pretty permalinks are on.
+- **Manage** shows the WordPress version, plugins and themes, and what can be
+  updated. **Update everything** updates WordPress itself, all plugins and all
+  themes.
+- **Make a staging copy** copies the site, files and database, to
+  `staging.<domain>` with its addresses changed, and asks search engines not
+  to index it. Give that name a DNS record (Tela adds it when the domain's DNS
+  is in Tela). When you're happy with the changes, **Push to live** copies the
+  staging site's files and/or database back over the live site. Before that,
+  Tela saves the live site as it was in `.tela/before-push` in the site's home
+  (root only).
+- **Copy to another website** clones a site to another, empty website.
+  Administrators can type a new domain and the website is created.
+
+WP-CLI runs as the website's own user with the website's PHP version. For your
+own use there's the `wp` command, e.g.
+`sudo -u <site user> wp --path=/home/<domain>/public_html plugin list`.
+
 ## The `tela` command
 
 ```bash
@@ -290,7 +315,7 @@ reload.
 4. ~~DNS: Cloudflare and PowerDNS, automatic records for websites~~
 5. ~~Email: Postfix, Dovecot, Rspamd, DKIM/SPF/DMARC, webmail~~
 6. ~~Backups: restic to S3, Backblaze B2 or SFTP, scheduled, with restore~~
-7. WordPress: install, staging, cloning, updates
+7. ~~WordPress: install, staging, cloning, updates~~
 8. Users: client accounts, hosting packages, resellers
 9. Firewall and Fail2ban management, two-factor authentication
 

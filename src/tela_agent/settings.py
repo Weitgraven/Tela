@@ -30,6 +30,7 @@ class Paths:
     webmail_user: str = "tela-webmail"
     backup_staging: Path = Path("/var/lib/tela-backup")
     panel_data: Path = Path("/var/lib/tela")
+    wp_cli: Path = Path("/usr/local/lib/tela/wp-cli.phar")
 
     @property
     def httpd_config(self) -> Path:
@@ -67,6 +68,10 @@ class Paths:
     @property
     def backup_dir(self) -> Path:
         return self.state_dir.parent / "backups"
+
+    @property
+    def wordpress_dir(self) -> Path:
+        return self.state_dir.parent / "wordpress"
 
     @property
     def panel_db(self) -> Path:
@@ -120,5 +125,6 @@ def load() -> Paths:
         mailhost_root=Path(env("TELA_MAILHOST_ROOT", str(base.mailhost_root))),
         webmail_root=Path(env("TELA_WEBMAIL_ROOT", str(base.webmail_root))),
         backup_staging=Path(env("TELA_BACKUP_STAGING", str(base.backup_staging))),
+        wp_cli=Path(env("TELA_WP_CLI", str(base.wp_cli))),
         panel_data=Path(env("TELA_PANEL_DATA", panel_paths.get("data_dir", str(base.panel_data)))),
     )

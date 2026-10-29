@@ -9,8 +9,11 @@ from __future__ import annotations
 import os
 import sys
 
-from . import backups, settings
-from .actions import backups as _actions  # noqa: F401  (registers nothing new, loads modules)
+from . import (
+    actions,  # noqa: F401  (registers every kind of job)
+    backups,
+    settings,
+)
 
 
 def main(argv: list[str]) -> int:

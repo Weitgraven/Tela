@@ -169,6 +169,7 @@ def run_destination(dest_id: str, request: Request, admin: AdminPrincipal, db: D
 def list_jobs(principal: CurrentPrincipal, db: Db, agent: Agent):
     own = _own_domains(db, principal)
     jobs = call_agent(agent, "backup.jobs", {"limit": 50})
+    jobs = [j for j in jobs if j["kind"] in ("backup", "restore")]
     return {"jobs": [j for j in jobs if _may_see(j, principal, own)][:30]}
 
 

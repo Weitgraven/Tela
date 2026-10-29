@@ -15,6 +15,7 @@ from .api import dns as dns_api
 from .api import mail as mail_api
 from .api import system as system_api
 from .api import websites as websites_api
+from .api import wordpress as wordpress_api
 from .config import Config
 from .db import migrate
 
@@ -61,6 +62,7 @@ def create_app(config: Config) -> FastAPI:
     app.include_router(dns_api.router)
     app.include_router(mail_api.router)
     app.include_router(backups_api.router)
+    app.include_router(wordpress_api.router)
 
     @app.get("/api/health")
     def health():

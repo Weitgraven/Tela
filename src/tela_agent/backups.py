@@ -35,7 +35,7 @@ from .restic import Repo, ResticError
 JOB_ID = re.compile(r"^[0-9]{10}-[0-9a-f]{6}$")
 DEST_ID = re.compile(r"^[a-z0-9]{8}$")
 SECRET_FIELDS = ("secret_key", "account_key", "repo_password")
-SITE_EXCLUDES = ("logs", ".acme")
+SITE_EXCLUDES = ("logs", ".acme", ".tela")
 
 
 # ---------------------------------------------------------------------------
@@ -639,12 +639,10 @@ def execute(paths: settings.Paths, job_id: str) -> dict[str, Any]:
     save_job(paths, job)
     log = Log(paths, job_id)
     try:
-        if job["kind"] == "backup":
-            run_backup(paths, job)
-        elif job["kind"] == "restore":
-            run_restore(paths, job)
-        else:
+        runner = JOB_KINDS.get(job["kind"])
+        if runner is None:
             raise ActionError(f"unknown job kind {job['kind']}")
+        runner(paths, job)
     except (ActionError, ResticError) as exc:
         job.update(status="failed", message=str(exc))
         log(f"FAILED: {exc}")
@@ -664,6 +662,10 @@ def execute(paths: settings.Paths, job_id: str) -> dict[str, Any]:
         })  # fmt: skip
         _notify(paths, job)
     return job
+
+
+# Other modules (WordPress) add their own kinds of jobs here.
+JOB_KINDS = {"backup": run_backup, "restore": run_restore}
 
 
 def load_destination_safe(paths: settings.Paths, dest_id: str) -> dict[str, Any]:

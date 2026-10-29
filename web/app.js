@@ -5,6 +5,7 @@ import { DatabasesView } from "./js/databases.js";
 import { DnsView, DnsZoneView } from "./js/dns.js";
 import { EmailView, EmailDomainView } from "./js/email.js";
 import { BackupsView } from "./js/backups.js";
+import { WordPressView } from "./js/wordpress.js";
 
 // ---------------------------------------------------------------------------
 // Navigation
@@ -17,12 +18,7 @@ const SECTIONS = [
   { path: "/dns", label: "DNS" },
   { path: "/email", label: "Email" },
   { path: "/backups", label: "Backups" },
-  {
-    path: "/wordpress",
-    label: "WordPress",
-    soon: true,
-    plan: ["One-click install", "Staging copies and cloning", "Core, plugin and theme updates"],
-  },
+  { path: "/wordpress", label: "WordPress" },
   {
     path: "/users",
     label: "Users",
@@ -197,7 +193,7 @@ const PlannedView = {
 const ShellView = {
   components: {
     DashboardView, PlannedView, WebsitesView, WebsiteDetailView, DatabasesView, DnsView, DnsZoneView,
-    EmailView, EmailDomainView, BackupsView,
+    EmailView, EmailDomainView, BackupsView, WordPressView,
   },
   setup() {
     const current = computed(
@@ -265,6 +261,7 @@ const ShellView = {
         <EmailDomainView v-else-if="mailDomain" :key="mailDomain" :domain="mailDomain" />
         <EmailView v-else-if="current.path === '/email'" />
         <BackupsView v-else-if="current.path === '/backups'" />
+        <WordPressView v-else-if="current.path === '/wordpress'" />
         <PlannedView v-else :section="current" />
       </main>
     </div>
