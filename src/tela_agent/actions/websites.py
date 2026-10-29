@@ -393,3 +393,42 @@ def issue_ssl(params: dict[str, Any]) -> dict[str, Any]:
     result = site.to_dict()
     result["skipped_names"] = [a for a in site.aliases if a not in names]
     return result
+
+
+# ---------------------------------------------------------------------------
+# .htaccess changes
+# ---------------------------------------------------------------------------
+
+
+class HtaccessWatch:
+    """OpenLiteSpeed reads a site's top-level .htaccess only when it loads its
+    configuration, so rules WordPress or a plugin writes there (permalinks,
+    caching, redirects) do nothing until the next reload. The agent checks
+    every half minute and reloads the web server when one changed."""
+
+    def __init__(self) -> None:
+        self.seen: dict[str, tuple[int, int] | None] | None = None
+
+    def snapshot(self, paths: settings.Paths) -> dict[str, tuple[int, int] | None]:
+        result: dict[str, tuple[int, int] | None] = {}
+        for site in load_sites(paths):
+            path = site.home / "public_html" / ".htaccess"
+            try:
+                st = path.stat()
+                result[site.domain] = (st.st_mtime_ns, st.st_size)
+            except OSError:
+                result[site.domain] = None
+        return result
+
+    def check(self, paths: settings.Paths) -> bool:
+        """Reload the web server if an .htaccess changed since the last check."""
+        current = self.snapshot(paths)
+        previous, self.seen = self.seen, current
+        if previous is None:
+            return False
+        changed = [d for d, v in current.items() if d in previous and previous[d] != v]
+        if not changed:
+            return False
+        with _lock:
+            sysops.system.reload_web_server(paths.ols_root)
+        return True

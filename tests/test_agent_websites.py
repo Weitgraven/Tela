@@ -219,3 +219,19 @@ def test_strip_blocks_handles_heredoc_braces():
     )
     result = ols.strip_blocks(text, lambda kind, name: name == "A")
     assert result == "listener Keep {\n  address *:1\n}\n"
+
+
+def test_htaccess_change_reloads_web_server(host):
+    import os
+
+    fake, paths = host
+    websites.create_site({"domain": "shop.nl", "php_version": "8.3"})
+    watch = websites.HtaccessWatch()
+    assert watch.check(paths) is False  # first look only remembers
+    before = fake.reloads
+    htaccess = websites._load_site(paths, "shop.nl").home / "public_html" / ".htaccess"
+    htaccess.write_text("RewriteEngine On\n")
+    assert watch.check(paths) is True and fake.reloads == before + 1
+    assert watch.check(paths) is False
+    os.utime(htaccess, ns=(1, 1))
+    assert watch.check(paths) is True
