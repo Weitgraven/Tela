@@ -1,0 +1,40 @@
+<?php
+// Roundcube configuration, generated once by the Tela installer.
+// Kept across Roundcube upgrades; the des_key below encrypts stored passwords.
+
+$config = [];
+
+$config['db_dsnw'] = 'sqlite:///@DATA@/db/roundcube.db?mode=0640';
+
+// Dovecot and Postfix on this server. Loopback connections count as secure,
+// so IMAP needs no TLS; SMTP submission requires it (STARTTLS on 587). The
+// certificate is for the public host name, not "localhost", so its name isn't
+// checked on this local connection.
+$config['imap_host'] = 'localhost:143';
+$config['smtp_host'] = 'tls://localhost:587';
+$config['smtp_user'] = '%u';
+$config['smtp_pass'] = '%p';
+$config['smtp_conn_options'] = [
+    'ssl' => ['verify_peer' => false, 'verify_peer_name' => false, 'allow_self_signed' => true],
+];
+
+$config['des_key'] = '@DES_KEY@';
+$config['product_name'] = 'Webmail';
+$config['support_url'] = '';
+$config['skin'] = 'elastic';
+$config['plugins'] = ['archive', 'zipdownload', 'markasjunk'];
+$config['archive_mbox'] = 'Archive';
+$config['drafts_mbox'] = 'Drafts';
+$config['junk_mbox'] = 'Junk';
+$config['sent_mbox'] = 'Sent';
+$config['trash_mbox'] = 'Trash';
+
+$config['temp_dir'] = '@DATA@/temp/';
+$config['log_dir'] = '@DATA@/logs/';
+$config['enable_installer'] = false;
+$config['login_lc'] = 2;
+$config['ip_check'] = true;
+$config['session_lifetime'] = 60;
+$config['x_frame_options'] = 'sameorigin';
+$config['login_rate_limit'] = 3;
+$config['max_message_size'] = '50M';

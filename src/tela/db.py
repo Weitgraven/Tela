@@ -67,6 +67,15 @@ MIGRATIONS: list[str] = [
         created_at INTEGER NOT NULL
     );
     """,
+    # 4: mail domains (mailboxes live with the agent; the panel tracks ownership)
+    """
+    CREATE TABLE mail_domains (
+        id         INTEGER PRIMARY KEY,
+        domain     TEXT NOT NULL UNIQUE,
+        owner_id   INTEGER REFERENCES users(id) ON DELETE RESTRICT,
+        created_at INTEGER NOT NULL
+    );
+    """,
 ]
 
 

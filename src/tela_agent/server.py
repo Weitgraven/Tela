@@ -83,6 +83,10 @@ class AgentServer:
             uid = peer_uid(sock)
             if uid not in self.uids:
                 log.warning("rejected connection from uid %s", uid)
+                # Drain the request first: closing with unread data sends a reset,
+                # and the client would see "connection lost" instead of the reason.
+                with contextlib.suppress(Exception):
+                    await asyncio.wait_for(reader.readuntil(b"\n"), timeout=2)
                 await self._reply(writer, {"ok": False, "error": "permission denied"})
                 return
             try:

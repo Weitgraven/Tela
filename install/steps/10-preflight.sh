@@ -54,6 +54,15 @@ for port in 80 443 "$TELA_PORT" "$TELA_PMA_PORT"; do
 done
 ok "Ports 80, 443, $TELA_PORT and $TELA_PMA_PORT are available"
 
+for port in 25 465 587 110 143 993 995; do
+  owner=$(ss -Hltnp "sport = :$port" 2>/dev/null | grep -o 'users:(("[^"]*"' | head -1 | cut -d'"' -f2 || true)
+  case "$owner" in
+    "" | master | dovecot) ;;
+    *) die "Mail port $port is already used by '$owner'. Remove that mail server first." ;;
+  esac
+done
+ok "Mail ports are available"
+
 if [[ "${TELA_DNS_SERVER:-0}" == "1" ]]; then
   owner=$(ss -Hlunp "sport = :53" 2>/dev/null | grep -v "127.0.0.5[34]" \
     | grep -o 'users:(("[^"]*"' | head -1 | cut -d'"' -f2 || true)

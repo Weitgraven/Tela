@@ -3,6 +3,7 @@ import { api, session, route, navigate, formatBytes, formatUptime } from "./js/c
 import { WebsitesView, WebsiteDetailView } from "./js/websites.js";
 import { DatabasesView } from "./js/databases.js";
 import { DnsView, DnsZoneView } from "./js/dns.js";
+import { EmailView, EmailDomainView } from "./js/email.js";
 
 // ---------------------------------------------------------------------------
 // Navigation
@@ -13,12 +14,7 @@ const SECTIONS = [
   { path: "/websites", label: "Websites" },
   { path: "/databases", label: "Databases" },
   { path: "/dns", label: "DNS" },
-  {
-    path: "/email",
-    label: "Email",
-    soon: true,
-    plan: ["Mailboxes, forwarders and catch-alls", "DKIM, SPF and DMARC set up for you", "Spam filtering and webmail"],
-  },
+  { path: "/email", label: "Email" },
   {
     path: "/backups",
     label: "Backups",
@@ -205,6 +201,7 @@ const PlannedView = {
 const ShellView = {
   components: {
     DashboardView, PlannedView, WebsitesView, WebsiteDetailView, DatabasesView, DnsView, DnsZoneView,
+    EmailView, EmailDomainView,
   },
   setup() {
     const current = computed(
@@ -218,6 +215,10 @@ const ShellView = {
     });
     const dnsZone = computed(() => {
       const match = route.value.match(/^\/dns\/([^/]+)$/);
+      return match ? decodeURIComponent(match[1]) : null;
+    });
+    const mailDomain = computed(() => {
+      const match = route.value.match(/^\/email\/([^/]+)$/);
       return match ? decodeURIComponent(match[1]) : null;
     });
     const busy = ref(false);
@@ -235,7 +236,7 @@ const ShellView = {
     }
 
     const roleNames = { admin: "Administrator", reseller: "Reseller", user: "Client" };
-    return { sections: SECTIONS, current, detail, dnsZone, route, session, navigate, signOut, busy, roleNames };
+    return { sections: SECTIONS, current, detail, dnsZone, mailDomain, route, session, navigate, signOut, busy, roleNames };
   },
   template: `
     <div class="shell">
@@ -265,6 +266,8 @@ const ShellView = {
         <DatabasesView v-else-if="current.path === '/databases'" />
         <DnsZoneView v-else-if="dnsZone" :key="dnsZone" :zone="dnsZone" />
         <DnsView v-else-if="current.path === '/dns'" />
+        <EmailDomainView v-else-if="mailDomain" :key="mailDomain" :domain="mailDomain" />
+        <EmailView v-else-if="current.path === '/email'" />
         <PlannedView v-else :section="current" />
       </main>
     </div>

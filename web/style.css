@@ -1183,3 +1183,81 @@ code {
     margin-left: 0;
   }
 }
+
+/* Email ------------------------------------------------------------------- */
+.mail-server {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  max-width: 52rem;
+}
+.mail-server h2,
+.mail-cert h3,
+.mail-cert p {
+  margin: 0;
+}
+.mail-cert {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line-faint);
+}
+.table-panel + .table-panel,
+.table-panel + .zone-remove {
+  margin-top: 1.5rem;
+}
+.table-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.25rem 0;
+}
+.table-title {
+  margin: 0;
+  padding: 1rem 1.25rem 0.5rem;
+  font-size: var(--step-0, 1rem);
+}
+.table-head .table-title {
+  padding: 0;
+}
+.table-empty,
+.table-intro {
+  margin: 0;
+  padding: 0.5rem 1.25rem 1.25rem;
+}
+.table-intro {
+  padding-bottom: 0.75rem;
+}
+.table-intro p {
+  margin: 0 0 0.5rem;
+}
+.alias-form {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem 1.25rem 1.25rem;
+  border-bottom: 1px solid var(--line-faint);
+}
+.mail-usage {
+  min-width: 11rem;
+  font-size: var(--step--1);
+}
+.mail-usage .meter {
+  margin-top: 0.375rem;
+  max-width: 12rem;
+}
+.quota-form {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+.quota-form input {
+  width: 6.5rem;
+}
+.block {
+  display: block;
+}
+.mail-table .badge {
+  margin-left: 0.375rem;
+}

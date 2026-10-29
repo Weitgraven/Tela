@@ -4,9 +4,10 @@ Tela is a free, open-source web hosting control panel: websites, email, DNS,
 databases and backups on your own server, managed from one panel. Every
 feature is free. There are no paid add-ons and no premium tier.
 
-> **Status: early development.** Milestones 1–4 (installer, login,
-> dashboard, websites with SSL, databases with phpMyAdmin, DNS) are done. Hosting features are being added
-> milestone by milestone, see the [roadmap](#roadmap). Don't run it on a
+> **Status: early development.** Milestones 1–5 (installer, login,
+> dashboard, websites with SSL, databases with phpMyAdmin, DNS, email) are
+> done. Hosting features are being added milestone by milestone, see the
+> [roadmap](#roadmap). Don't run it on a
 > production server yet.
 
 ## Install
@@ -42,11 +43,11 @@ curl -sSL https://raw.githubusercontent.com/Weitgraven/Tela/main/install.sh \
 | `--hostname NAME` | unchanged | Set the server's hostname |
 | `--port PORT` | `8090` | Port the panel listens on |
 | `--php VERSION` | `8.3` | Default PHP version |
+| `--branch NAME` | `main` | Git branch to install |
+| `--with-dns-server` | off | Also run Tela's own DNS server (PowerDNS, port 53) |
 
 PHP 8.1, 8.2, 8.3 and 8.4 are installed so each website can choose its own.
 Set `TELA_PHP_VERSIONS` to install a different set.
-| `--branch NAME` | `main` | Git branch to install |
-| `--with-dns-server` | off | Also run Tela's own DNS server (PowerDNS, port 53) |
 
 ### What gets installed
 
@@ -56,13 +57,16 @@ Set `TELA_PHP_VERSIONS` to install a different set.
 | Certbot | Free Let's Encrypt certificates, renewed automatically |
 | MariaDB | Databases (local connections only) |
 | phpMyAdmin | Database management, single sign-on from the panel, port 8091 |
+| Postfix | Sending and receiving mail (25, submission on 587 and 465) |
+| Dovecot | Mailboxes over IMAP (993, 143) and POP3 (995, 110) |
+| Rspamd + Redis | Spam filtering and DKIM signing |
+| Roundcube | Webmail on the mail server's host name |
 | Tela panel | Web interface, `tela-panel` service, port 8090 |
 | Tela agent | Privileged helper, `tela-agent` service, Unix socket only |
 
 With `--with-dns-server`: PowerDNS as an authoritative DNS server.
 
-Coming in later milestones: Postfix, Dovecot, Rspamd, SnappyMail, Pure-FTPd,
-restic, nftables and Fail2ban.
+Coming in later milestones: Pure-FTPd, restic, nftables and Fail2ban.
 
 ## Websites
 
@@ -123,6 +127,36 @@ Tela manages DNS records in one of two places, chosen per domain:
 Set the server's public IP under **DNS → Settings**. New zones and new websites
 then get `@` and `www` A (and AAAA) records pointing at it, unless the names
 already have records. Behind a router, use the router's public IP.
+
+## Email
+
+1. **Email → Mail server**: set the mail server's host name, e.g.
+   `mail.example.com`, and give it an A record pointing at the server (not
+   proxied, if you use Cloudflare). Then
+   click **Get certificate** for a Let's Encrypt certificate (port 80 must be
+   reachable), so mail apps and webmail don't warn.
+2. **Add domain**: Tela creates a DKIM key for it. If the domain has a DNS zone
+   in Tela, the MX, SPF, DKIM and DMARC records are added for you; otherwise the
+   page lists them to add where your DNS is.
+3. Add mailboxes (with an optional size limit) and forwarders. A forwarder
+   with `*` as its address is a catch-all for addresses without a mailbox.
+
+Mail apps connect to the host name: IMAP on 993 (SSL/TLS), SMTP on 465
+(SSL/TLS) or 587 (STARTTLS), with the full address as user name. Webmail
+(Roundcube) is at `https://<mail host name>/`.
+
+Turning off sign-in for a mailbox keeps it receiving mail. Users can add email
+for their own websites' domains and manage their mailboxes; the mail server
+settings are for administrators.
+
+Things to check, especially on a home connection:
+
+- Many internet providers block outgoing port 25. Then receiving works but
+  other servers can't be reached when sending. Ask the provider to unblock it.
+- Mail servers distrust home IP addresses. Set a reverse DNS (PTR) record for
+  your IP to the mail host name if your provider allows it.
+- Forward ports 25, 465, 587 and 993 (and 995, 143, 110 if you use POP3 or plain
+  IMAP) to the server.
 
 ## The `tela` command
 
@@ -213,7 +247,7 @@ reload.
 2. ~~Websites: virtual hosts, PHP versions, Let's Encrypt SSL~~
 3. ~~Databases: MariaDB databases and users, phpMyAdmin with single sign-on~~
 4. ~~DNS: Cloudflare and PowerDNS, automatic records for websites~~
-5. Email: Postfix, Dovecot, Rspamd, DKIM/SPF/DMARC, webmail
+5. ~~Email: Postfix, Dovecot, Rspamd, DKIM/SPF/DMARC, webmail~~
 6. Backups: restic to S3, Backblaze B2 or SFTP, scheduled, with restore
 7. WordPress: install, staging, cloning, updates
 8. Users: client accounts, hosting packages, resellers

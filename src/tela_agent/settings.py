@@ -25,6 +25,9 @@ class Paths:
     panel_key: Path = Path("/etc/tela/ssl/panel.key")
     default_php: str = "8.3"
     pdns_dir: Path = Path("/etc/powerdns/tela")
+    mailhost_root: Path = Path("/var/lib/tela-mailhost")
+    webmail_root: Path = Path("/opt/tela-webmail")
+    webmail_user: str = "tela-webmail"
 
     @property
     def httpd_config(self) -> Path:
@@ -54,6 +57,14 @@ class Paths:
     @property
     def dns_dir(self) -> Path:
         return self.state_dir.parent / "dns"
+
+    @property
+    def mail_dir(self) -> Path:
+        return self.state_dir.parent / "mail"
+
+    @property
+    def webmail_installed(self) -> bool:
+        return (self.webmail_root / "index.php").exists()
 
     @property
     def sso_users_file(self) -> Path:
@@ -95,4 +106,6 @@ def load() -> Paths:
         panel_key=Path(panel.get("tls_key", str(base.panel_key))),
         default_php=str(defaults.get("php_version", base.default_php)),
         pdns_dir=Path(env("TELA_PDNS_DIR", str(base.pdns_dir))),
+        mailhost_root=Path(env("TELA_MAILHOST_ROOT", str(base.mailhost_root))),
+        webmail_root=Path(env("TELA_WEBMAIL_ROOT", str(base.webmail_root))),
     )

@@ -186,3 +186,70 @@ class FakePowerDNS:
         if self.fail_reload:
             raise ActionError("PowerDNS: Failed to parse zone file")
         self.reloads.append(zone)
+
+
+class FakeMailSystem:
+    """MailSystem with every path under a temp dir and services recorded."""
+
+    def __new__(cls, base):
+        from tela_agent.mailsys import MailSystem
+
+        class _Fake(MailSystem):
+            postfix_dir = base / "postfix"
+            dovecot_conf = base / "dovecot" / "dovecot.conf"
+            dovecot_users = base / "dovecot" / "users"
+            dkim_dir = base / "dkim"
+            rspamd_local = base / "rspamd"
+            vmail_root = base / "vmail"
+            cert = base / "ssl" / "mail.crt"
+            key = base / "ssl" / "mail.key"
+            installed = True
+            version = (2, 4)
+            fail_reload = False
+
+            def __init__(self):
+                self.postconf_calls: list[dict] = []
+                self.reloads: list[str] = []
+
+            def dovecot_version(self):
+                return self.version
+
+            def vmail_ids(self):
+                return 5000, 5000
+
+            def postconf(self, settings):
+                self.postconf_calls.append(dict(settings))
+
+            def configure_submission(self):
+                self.reloads.append("submission")
+
+            def reload_postfix(self):
+                from tela_agent.registry import ActionError
+
+                if self.fail_reload:
+                    raise ActionError("Postfix configuration check failed: bad")
+                self.reloads.append("postfix")
+
+            def check_dovecot(self):
+                self.reloads.append("doveconf")
+
+            def reload_dovecot(self):
+                self.reloads.append("dovecot")
+
+            def restart_dovecot(self):
+                self.reloads.append("dovecot-restart")
+
+            def write(self, path, content, mode=0o644, owner=None, group=None):
+                from tela_agent.sysops import write_atomic
+
+                write_atomic(path, content, mode)
+
+            @staticmethod
+            def ipv6_available():
+                return False
+
+            def use_certificate(self, cert, key):
+                self.cert.parent.mkdir(parents=True, exist_ok=True)
+                super().use_certificate(cert, key)
+
+        return _Fake()

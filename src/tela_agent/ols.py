@@ -15,6 +15,7 @@ web server config can always be rebuilt from scratch.
 from __future__ import annotations
 
 import contextlib
+import json
 import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
@@ -265,11 +266,13 @@ def render_vhconf(site: Site, paths: Paths) -> str:
     return "".join(lines)
 
 
-def render_listeners(sites: Iterable[Site], paths: Paths) -> str:
+def render_listeners(sites: Iterable[Site], paths: Paths, mailhost: str = "") -> str:
     maps = "".join(
         _kv("map", f"{site.domain} {', '.join(site.all_names)}")
         for site in sorted(sites, key=lambda s: s.domain)
     )
+    if mailhost:
+        maps += _kv("map", f"{MAIL_VHOST} {mailhost}")
     return (
         HEADER
         + "listener TelaHTTP {\n"
@@ -388,6 +391,126 @@ def render_pma_listener(paths: Paths) -> str:
 
 
 # ---------------------------------------------------------------------------
+# The mail server's host name (e.g. mail.example.com): answers Let's Encrypt
+# challenges for the mail certificate and serves Roundcube webmail, with PHP
+# running as the dedicated tela-webmail user.
+# ---------------------------------------------------------------------------
+
+MAIL_VHOST = "TelaMail"
+
+
+def mail_settings(paths: Paths) -> dict:
+    try:
+        return json.loads((paths.mail_dir / "settings.json").read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def render_mail_vhost_block(paths: Paths) -> str:
+    root = paths.webmail_root if paths.webmail_installed else paths.mailhost_root
+    return (
+        HEADER
+        + f"virtualhost {MAIL_VHOST} {{\n"
+        + _kv("vhRoot", f"{root}/")
+        + _kv("configFile", paths.vhost_conf_root / MAIL_VHOST / "vhconf.conf")
+        + _kv("allowSymbolLink", 0)
+        + _kv("enableScript", 1)
+        + _kv("restrained", 1)
+        + "}\n"
+    )
+
+
+def render_mail_vhconf(paths: Paths, conf: dict) -> str:
+    webmail = paths.webmail_installed
+    hostname = conf.get("hostname", "")
+    cert, key = conf.get("ssl_cert") or "", conf.get("ssl_key") or ""
+    lines = [
+        HEADER,
+        _kv("docRoot", "$VH_ROOT/public_html" if webmail else "$VH_ROOT/public", 0),
+        _kv("vhDomain", hostname, 0),
+        _kv("enableGzip", 1, 0),
+        "\nindex {\n",
+        _kv("useServer", 0),
+        _kv("indexFiles", "index.php, index.html" if webmail else "index.html"),
+        _kv("autoIndex", 0),
+        "}\n",
+    ]
+    if webmail:
+        lines += [
+            "\nscripthandler {\n",
+            _kv("add", "lsapi:tela_webmail php"),
+            "}\n",
+            "\nextprocessor tela_webmail {\n",
+            _kv("type", "lsapi"),
+            _kv("address", "UDS://tmp/lshttpd/tela_webmail.sock"),
+            _kv("maxConns", 10),
+            _kv("env", "LSAPI_CHILDREN=10"),
+            _kv("initTimeout", 60),
+            _kv("retryTimeout", 0),
+            _kv("persistConn", 1),
+            _kv("respBuffer", 0),
+            _kv("autoStart", 1),
+            _kv("path", _pma_php(paths)),
+            _kv("extUser", paths.webmail_user),
+            _kv("extGroup", paths.webmail_user),
+            _kv("memSoftLimit", "1024M"),
+            _kv("memHardLimit", "1024M"),
+            "}\n",
+            "\nphpIniOverride {\n",
+            "php_admin_value upload_max_filesize 50M\n",
+            "php_admin_value post_max_size 55M\n",
+            "php_admin_value session.save_path /var/lib/tela-webmail/sessions\n",
+            "php_admin_flag display_errors off\n",
+            "}\n",
+        ]
+    lines += [
+        "\ncontext /.well-known/acme-challenge/ {\n",
+        _kv("location", f"{paths.mailhost_root}/.acme/.well-known/acme-challenge/"),
+        _kv("allowBrowse", 1),
+        "  rewrite {\n",
+        _kv("enable", 0, 4),
+        "  }\n",
+        _kv("addDefaultCharset", "off"),
+        "}\n",
+        "\nrewrite {\n",
+        _kv("enable", 1),
+        _kv("autoLoadHtaccess", 0),
+    ]
+    if cert and key:
+        lines += [
+            "  rules <<<END_rules\n",
+            "RewriteCond %{HTTPS} !=on\n",
+            "RewriteCond %{REQUEST_URI} !^/\\.well-known/acme-challenge/\n",
+            "RewriteRule ^/?(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]\n",
+            "RewriteRule ^/?favicon\\.ico$ /static.php/skins/elastic/images/favicon.ico [L]\n"
+            if webmail
+            else "",
+            "END_rules\n",
+        ]
+    elif webmail:
+        lines += [
+            "  rules <<<END_rules\n",
+            "RewriteRule ^/?favicon\\.ico$ /static.php/skins/elastic/images/favicon.ico [L]\n",
+            "END_rules\n",
+        ]
+    lines.append("}\n")
+    if cert and key:
+        lines += [
+            "\nvhssl {\n",
+            _kv("keyFile", key),
+            _kv("certFile", cert),
+            _kv("certChain", 1),
+            _kv("sslProtocol", 24),
+            _kv("enableECDHE", 1),
+            _kv("renegProtection", 1),
+            _kv("sslSessionCache", 1),
+            _kv("enableSpdy", 15),
+            "}\n",
+        ]
+    return "".join(lines)
+
+
+# ---------------------------------------------------------------------------
 # Writing
 # ---------------------------------------------------------------------------
 
@@ -397,7 +520,15 @@ def desired_files(sites: list[Site], paths: Paths) -> dict[Path, str]:
     for site in sites:
         files[paths.tela_conf_dir / f"vhost-{site.domain}.conf"] = render_vhost_block(site, paths)
         files[paths.vhost_conf_root / site.domain / "vhconf.conf"] = render_vhconf(site, paths)
-    listeners = render_listeners(sites, paths)
+    mail = mail_settings(paths)
+    hostname = mail.get("hostname", "")
+    taken = {n for s in sites for n in s.all_names}
+    if hostname and hostname not in taken:
+        files[paths.tela_conf_dir / "mailhost.conf"] = render_mail_vhost_block(paths)
+        files[paths.vhost_conf_root / MAIL_VHOST / "vhconf.conf"] = render_mail_vhconf(paths, mail)
+    else:
+        hostname = ""
+    listeners = render_listeners(sites, paths, hostname)
     if paths.pma_installed:
         files[paths.tela_conf_dir / "phpmyadmin.conf"] = render_pma_vhost_block(paths)
         files[paths.vhost_conf_root / PMA_VHOST / "vhconf.conf"] = render_pma_vhconf(paths)
@@ -408,7 +539,12 @@ def desired_files(sites: list[Site], paths: Paths) -> dict[Path, str]:
 
 def snapshot(paths: Paths, extra: Iterable[Path] = ()) -> dict[Path, str | None]:
     """Current content of every file Tela manages (None if missing), for rollback."""
-    targets = {paths.httpd_config, paths.vhost_conf_root / PMA_VHOST / "vhconf.conf", *extra}
+    targets = {
+        paths.httpd_config,
+        paths.vhost_conf_root / PMA_VHOST / "vhconf.conf",
+        paths.vhost_conf_root / MAIL_VHOST / "vhconf.conf",
+        *extra,
+    }
     if paths.tela_conf_dir.exists():
         targets.update(paths.tela_conf_dir.glob("*.conf"))
     return {p: (p.read_text() if p.exists() else None) for p in targets}
@@ -441,6 +577,8 @@ def write(sites: list[Site], paths: Paths, removed: Iterable[str] = ()) -> list[
     keep = {f"vhost-{s.domain}.conf" for s in sites} | {"zz-listeners.conf"}
     if paths.pma_installed:
         keep.add("phpmyadmin.conf")
+    if (paths.tela_conf_dir / "mailhost.conf") in files:
+        keep.add("mailhost.conf")
     for stale in paths.tela_conf_dir.glob("*.conf"):
         if stale.name not in keep:
             stale.unlink()

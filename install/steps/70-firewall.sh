@@ -5,15 +5,17 @@ step "Checking the firewall"
 # the ports it needs if ufw is already active, and never enables a firewall
 # itself (that could lock you out of SSH).
 if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "^Status: active"; then
-  for port in 80/tcp 443/tcp 443/udp "$TELA_PORT/tcp" "$TELA_PMA_PORT/tcp"; do
+  for port in 80/tcp 443/tcp 443/udp "$TELA_PORT/tcp" "$TELA_PMA_PORT/tcp" \
+    25/tcp 465/tcp 587/tcp 110/tcp 143/tcp 993/tcp 995/tcp; do
     run ufw allow "$port"
   done
-  ok "Opened 80, 443, $TELA_PORT and $TELA_PMA_PORT in ufw"
+  ok "Opened 80, 443, $TELA_PORT, $TELA_PMA_PORT and the mail ports in ufw"
   if [[ "${TELA_DNS_SERVER:-0}" == "1" ]]; then
     run ufw allow 53/tcp
     run ufw allow 53/udp
     ok "Opened 53 for DNS in ufw"
   fi
 else
-  info "No active firewall found. Make sure ports 80, 443, $TELA_PORT and $TELA_PMA_PORT are reachable."
+  info "No active firewall found. Make sure ports 80, 443, $TELA_PORT and $TELA_PMA_PORT are reachable,"
+  info "and for email 25, 465, 587 and 993 (and 995/143/110 if you use POP3 or plain IMAP)."
 fi

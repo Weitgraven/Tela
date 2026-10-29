@@ -110,7 +110,10 @@ def _username_for(domain: str) -> str:
 
 def _check_names_free(sites: list[Site], names: list[str], exclude: str | None = None) -> None:
     taken = {n: s.domain for s in sites if s.domain != exclude for n in s.all_names}
+    mailhost = ols.mail_settings(_paths()).get("hostname")
     for name in names:
+        if name == mailhost:
+            raise ActionError(f"{name} is the mail server's host name (webmail)")
         if name in taken:
             raise ActionError(f"{name} is already used by the website {taken[name]}")
 
